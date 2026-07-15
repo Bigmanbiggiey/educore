@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+staticfiles/
+celerybeat-schedule
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+frontend/src/shared/lib/api-types.ts
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Docker / data
+postgres_data/
+minio_data/
+
+# Claude Code local state
+.claude/
+
+# IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log

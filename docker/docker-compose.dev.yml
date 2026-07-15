@@ -1,0 +1,62 @@
+services:
+  backend:
+    build:
+      context: ../backend
+      args:
+        REQUIREMENTS_FILE: requirements/dev.txt
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+    volumes:
+      - ../backend:/app
+    ports:
+      - "8000:8000"
+
+  celery-worker:
+    build:
+      context: ../backend
+      args:
+        REQUIREMENTS_FILE: requirements/dev.txt
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+    volumes:
+      - ../backend:/app
+
+  celery-beat:
+    build:
+      context: ../backend
+      args:
+        REQUIREMENTS_FILE: requirements/dev.txt
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+    volumes:
+      - ../backend:/app
+
+  frontend:
+    build:
+      context: ../frontend
+      target: deps
+    command: npm run dev
+    volumes:
+      - ../frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  # Nginx isn't needed for local dev — the frontend is reached directly at
+  # :5173 (its own dev server proxies /api to :8000, see frontend/vite.config.ts),
+  # and the backend is reached directly at :8000.
+  nginx:
+    profiles: ["with-nginx"]
+
+volumes:
+  frontend_node_modules:
