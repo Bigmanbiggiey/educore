@@ -4,4 +4,10 @@ root_package = apps
 # Layer + independence contracts are added incrementally as each app lands,
 # per docs/project-structure.md §5 (Layer 0 -> Layer 1 -> Layer 2 -> Layer 3,
 # no upward imports; sibling apps only via each other's services/selectors).
-# Left without contracts at scaffolding time since no apps exist yet.
+
+[importlinter:contract:layer-0-core-institutions-accounts]
+name = institutions and accounts depend on core (never the reverse); institutions and accounts are independent of each other
+type = layers
+layers =
+    apps.institutions | apps.accounts
+    apps.core

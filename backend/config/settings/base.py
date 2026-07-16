@@ -47,13 +47,24 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS: list[str] = [
-    # Populated starting Phase 1 — see docs/modules.md for the full app list
-    # and required dependency order.
+    "apps.core",
+    "apps.institutions",
+    "apps.accounts",
+    # Remaining Phase 1 apps land in dependency order — see docs/modules.md:
+    # permissions -> audit -> notifications_core
 ]
+
+# Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.
+# the platform admin/system-admin host. Empty by default: production must
+# opt a host in explicitly rather than defaulting to bypassing tenant scoping.
+PLATFORM_HOSTS = env.list("PLATFORM_HOSTS", default=[])
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    # First, so every response — including ones short-circuited by
+    # SecurityMiddleware (e.g. an SSL redirect) — carries a correlation ID.
+    "apps.core.middleware.CorrelationIdMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -62,9 +73,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # apps.core.middleware.CorrelationIdMiddleware and
-    # apps.institutions.middleware.TenantMiddleware are added here in Phase 1
-    # (docs/architecture.md §6, docs/multitenancy.md §2).
+    "apps.institutions.middleware.TenantMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -90,16 +99,17 @@ ASGI_APPLICATION = "config.asgi.application"
 
 # --------------------------------------------------------------------------
 # Database
-#
-# DATABASE_ROUTERS (apps.core.db_router.TenantDBRouter, per
-# docs/multitenancy.md §5) is added in Phase 1 once the dedicated_db tier
-# routing logic exists. Until then, everything runs against `default`.
 # --------------------------------------------------------------------------
 
 DATABASES = {
     "default": env.db("DATABASE_URL", default="postgres://educore:educore@postgres:5432/educore"),
 }
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
+
+# Routes dedicated_db-tier tenants to their own database alias
+# (docs/multitenancy.md §5). No such tenant exists yet, so every read/write
+# still resolves to `default` in practice.
+DATABASE_ROUTERS = ["apps.core.db_router.TenantDBRouter"]
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -111,8 +121,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# AUTH_USER_MODEL points at apps.accounts.User once that app exists (Phase 1).
-# AUTH_USER_MODEL = "accounts.User"
+AUTH_USER_MODEL = "accounts.User"
 
 # --------------------------------------------------------------------------
 # Internationalization
@@ -181,7 +190,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPageNumberPagination",
     "PAGE_SIZE": 25,
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -231,14 +240,22 @@ CORS_ALLOW_CREDENTIALS = True
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "correlation_id": {"()": "apps.core.logging.CorrelationIdLogFilter"},
+    },
     "formatters": {
         "json": {
             "format": '{"level": "%(levelname)s", "time": "%(asctime)s", '
-            '"logger": "%(name)s", "message": "%(message)s"}',
+            '"logger": "%(name)s", "correlation_id": "%(correlation_id)s", '
+            '"message": "%(message)s"}',
         },
     },
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "json"},
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "filters": ["correlation_id"],
+        },
     },
     "root": {"handlers": ["console"], "level": "INFO"},
 }
