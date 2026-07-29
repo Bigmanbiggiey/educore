@@ -3,12 +3,17 @@ import type { ReactNode } from "react";
 
 import { queryClient } from "@/shared/lib/query-client";
 
+import { AuthProvider } from "./AuthProvider";
+
 /**
- * AuthProvider (current user + institution memberships) and ThemeProvider
- * (dark mode + per-institution branding, docs/frontend-architecture.md §6)
- * are added here in Phase 1, alongside the accounts/institutions backend
- * work they depend on.
+ * ThemeProvider (dark mode + per-institution branding,
+ * docs/frontend-architecture.md §6) lands once `institutions` branding
+ * fields are actually consumed somewhere — not built speculatively now.
  */
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
 }

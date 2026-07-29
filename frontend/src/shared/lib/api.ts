@@ -5,31 +5,10 @@
  * docs/api-design.md §4. See docs/frontend-architecture.md §7.
  */
 
+import { ApiError, type ApiErrorBody } from "./api-error";
 import { getAccessToken, silentRefresh } from "./auth";
 
-interface ApiErrorBody {
-  error?: {
-    code: string;
-    message: string;
-    fields?: Record<string, string[]>;
-    correlation_id?: string;
-  };
-}
-
-export class ApiError extends Error {
-  status: number;
-  code: string;
-  fields?: Record<string, string[]>;
-  correlationId?: string;
-
-  constructor(status: number, body: ApiErrorBody) {
-    super(body.error?.message ?? "Request failed");
-    this.status = status;
-    this.code = body.error?.code ?? "unknown_error";
-    this.fields = body.error?.fields;
-    this.correlationId = body.error?.correlation_id;
-  }
-}
+export { ApiError };
 
 async function request<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<T> {
   const headers = new Headers(options.headers);
