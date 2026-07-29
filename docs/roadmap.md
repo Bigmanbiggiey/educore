@@ -16,8 +16,8 @@ boundaries and minimizing technical debt.
 
 | Phase | Status |
 |--------|--------|
-| Phase 1 – Platform Foundation | 🚧 Planned |
-| Phase 2 – Core Academic Engine | ⏳ Planned |
+| Phase 1 – Platform Foundation | ✅ Complete |
+| Phase 2 – Core Academic Engine | ✅ Complete |
 | Phase 3 – Curriculum Plugin Framework | ⏳ Planned |
 | Phase 4 – Finance | ⏳ Planned |
 | Phase 5 – Communication | ⏳ Planned |

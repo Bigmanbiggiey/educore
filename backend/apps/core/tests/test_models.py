@@ -49,6 +49,14 @@ class TenantScopedSoftDeleteModelTests(TestCase):
         with self.assertRaises(TenantContextMissing):
             list(self.Widget.objects.all())
 
+    def test_none_works_without_a_bound_tenant(self):
+        """`.none()` never touches real data (Django's EmptyQuerySet
+        short-circuits before hitting the DB), so third-party
+        schema-introspection tooling (drf-spectacular, django-filter) that
+        calls `Model._default_manager.none()` outside any real request
+        must not be met with TenantContextMissing."""
+        self.assertEqual(list(self.Widget.objects.none()), [])
+
     def test_default_manager_only_sees_the_bound_tenant(self):
         institution_a, institution_b = _institution(), _institution()
         with bind_institution(institution_a):
@@ -94,3 +102,13 @@ class TenantScopedSoftDeleteModelTests(TestCase):
             widget = self.Widget.objects.create(institution_id=institution.id, name="x")
             widget.hard_delete()
             self.assertFalse(self.Widget.all_tenants_unsafe.filter(pk=widget.pk).exists())
+
+    def test_carries_timestamps(self):
+        """docs/database.md §1: created_at/updated_at are "not optional
+        per-model" — TenantScopedModel extends TimeStampedModel precisely
+        so every Layer 1+ app gets these for free."""
+        institution = _institution()
+        with bind_institution(institution):
+            widget = self.Widget.objects.create(institution_id=institution.id, name="x")
+        self.assertIsNotNone(widget.created_at)
+        self.assertIsNotNone(widget.updated_at)

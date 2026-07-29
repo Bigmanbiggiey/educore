@@ -1,13 +1,77 @@
 [importlinter]
 root_package = apps
+# `TYPE_CHECKING`-only imports (apps.core.context's ContextVar[Institution]
+# annotation, apps.notifications_core.services's duck-typed User hint) are
+# never executed at runtime and aren't a real architectural dependency —
+# without this, import-linter treats them exactly like a live import and
+# flags the exact pattern those modules use on purpose to avoid one.
+exclude_type_checking_imports = True
 
 # Layer + independence contracts are added incrementally as each app lands,
 # per docs/project-structure.md §5 (Layer 0 -> Layer 1 -> Layer 2 -> Layer 3,
 # no upward imports; sibling apps only via each other's services/selectors).
 
-[importlinter:contract:layer-0-core-institutions-accounts]
-name = institutions and accounts depend on core (never the reverse); institutions and accounts are independent of each other
+[importlinter:contract:layer-0-core-institutions-accounts-permissions-audit-notifications]
+name = permissions/audit/notifications_core depend on the Layer 0 apps below them (never the reverse); institutions/accounts are independent of each other, and permissions/audit/notifications_core are independent of each other
 type = layers
 layers =
+    apps.permissions | apps.audit | apps.notifications_core
+    apps.institutions | apps.accounts
+    apps.core
+
+[importlinter:contract:notifications-core-no-accounts]
+name = notifications_core does not depend on accounts (docs/modules.md: Depends on core, institutions only)
+type = forbidden
+source_modules =
+    apps.notifications_core
+forbidden_modules =
+    apps.accounts
+# Test-only: constructing a real accounts.User row to exercise the FK
+# assignment on NotificationLog.recipient_user (Django validates FK
+# assignment via isinstance against the real model, so a duck-typed stand-in
+# won't do here) — apps.notifications_core's actual production code
+# (models/selectors/services/tasks/backends) never imports accounts.
+ignore_imports =
+    apps.notifications_core.tests.test_services -> apps.accounts.models
+
+[importlinter:contract:layer-1-depends-on-layer-0-only]
+name = Layer 1 apps depend on Layer 0 (never the reverse); siblings are independent of each other except the sanctioned parents -> students edge (docs/modules.md: "reads guardian links from students, doesn't duplicate them")
+type = layers
+layers =
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions
+    apps.permissions | apps.audit | apps.notifications_core
+    apps.institutions | apps.accounts
+    apps.core
+ignore_imports =
+    apps.parents.selectors -> apps.students.selectors
+    # Test-only: constructing real Student/GuardianRelationship rows to
+    # prove the parents -> students pass-through selector reaches real
+    # data, not just that it doesn't error.
+    apps.parents.tests.test_selectors -> apps.students.models
+    # admissions.services.convert_to_enrollment is the one sanctioned
+    # admissions -> students *write* chain (docs/modules.md).
+    apps.admissions.services -> apps.students.models
+    apps.admissions.services -> apps.students.services
+    # Test-only: confirming convert_to_enrollment actually created real
+    # Student/Enrollment rows, not just that it didn't error.
+    apps.admissions.tests.test_services -> apps.students.models
+
+[importlinter:contract:layer-1-siblings-independent]
+name = Layer 1 apps are independent of each other, except the sanctioned cross-app calls docs/modules.md names explicitly (parents -> students guardian reads, admissions -> students.enroll_student; academics has its own broader documented dependency set and isn't part of this set)
+type = independence
+modules =
+    apps.classes_streams
+    apps.students
+    apps.staff
+    apps.timetable
+    apps.attendance
+
+[importlinter:contract:academics-dependencies]
+name = academics depends on core/institutions/students/classes_streams/staff (docs/modules.md's explicit dependency list for academics), never the reverse
+type = layers
+layers =
+    apps.academics
+    apps.classes_streams | apps.students | apps.staff
+    apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core

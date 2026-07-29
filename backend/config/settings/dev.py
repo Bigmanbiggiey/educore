@@ -13,6 +13,11 @@ CORS_ALLOWED_ORIGINS = [
 # (docs/multitenancy.md §2). "testserver" is Django's test-client default.
 PLATFORM_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
+# Local dev is plain http:// — a browser silently drops a `Secure` cookie
+# set over a non-HTTPS connection, which would make the refresh cookie
+# never actually get set during local testing.
+REFRESH_TOKEN_COOKIE_SECURE = False
+
 INSTALLED_APPS += ["debug_toolbar"]  # noqa: F405
 MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]  # noqa: F405
 INTERNAL_IPS = ["127.0.0.1"]

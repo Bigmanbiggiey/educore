@@ -50,8 +50,18 @@ LOCAL_APPS: list[str] = [
     "apps.core",
     "apps.institutions",
     "apps.accounts",
-    # Remaining Phase 1 apps land in dependency order — see docs/modules.md:
-    # permissions -> audit -> notifications_core
+    "apps.permissions",
+    "apps.audit",
+    "apps.notifications_core",
+    # Layer 1 — docs/checklist.md's fixed Phase 2 build order.
+    "apps.classes_streams",
+    "apps.students",
+    "apps.staff",
+    "apps.parents",
+    "apps.academics",
+    "apps.timetable",
+    "apps.attendance",
+    "apps.admissions",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.
@@ -222,6 +232,19 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+# The refresh token is never in the response body — httpOnly/Secure/
+# SameSite=Strict cookie only (docs/authentication.md §1, §4;
+# docs/frontend-architecture.md §2). No `domain` is ever set when writing
+# this cookie (apps/permissions/views.py) — leaving it unset scopes the
+# cookie to the exact requesting hostname, never a wildcard
+# `*.educore.africa`, per docs/authentication.md §4.
+REFRESH_TOKEN_COOKIE_NAME = "refresh_token"
+REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/"
+# True by default (production); dev.py overrides to False since local dev
+# is served over plain http:// and a browser silently drops a `Secure`
+# cookie set over a non-HTTPS connection.
+REFRESH_TOKEN_COOKIE_SECURE = env.bool("REFRESH_TOKEN_COOKIE_SECURE", default=True)
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "EduCore API",
     "DESCRIPTION": "Kenya-first, globally-extensible Education ERP API.",
@@ -231,6 +254,20 @@ SPECTACULAR_SETTINGS = {
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
+
+# --------------------------------------------------------------------------
+# Notifications — pluggable per-channel backend (apps.notifications_core)
+# --------------------------------------------------------------------------
+
+# Real provider backends (Africa's Talking for SMS, SES/SMTP for email, a
+# push provider) land in Phase 5 (docs/roadmap.md) once `communication`
+# exists and is actually driving traffic — the console backend is the
+# deliberate default until then, not a placeholder left in by accident.
+NOTIFICATION_CHANNEL_BACKENDS = {
+    "sms": "apps.notifications_core.backends.ConsoleChannelBackend",
+    "email": "apps.notifications_core.backends.ConsoleChannelBackend",
+    "push": "apps.notifications_core.backends.ConsoleChannelBackend",
+}
 
 # --------------------------------------------------------------------------
 # Logging — structured JSON to stdout, correlation-ID-friendly
