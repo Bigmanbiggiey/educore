@@ -36,3 +36,7 @@ def get_active_enrollment(student: Student, term_id: uuid.UUID) -> Enrollment | 
 
 def get_student_by_user_id(user_id: uuid.UUID) -> Student | None:
     return Student.objects.filter(user_id=user_id).first()
+
+
+def get_student_by_id(student_id: uuid.UUID) -> Student | None:
+    return Student.objects.filter(id=student_id).first()

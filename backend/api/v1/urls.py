@@ -17,4 +17,8 @@ urlpatterns = [
     path("", include("apps.timetable.urls")),
     path("", include("apps.attendance.urls")),
     path("", include("apps.admissions.urls")),
+    # Curriculum plugins get their own hyphenated URL namespace, unlike the
+    # flat Layer 0/1 apps above — docs/api-design.md §8: multiple future
+    # curriculum apps will have colliding concept names like "Subject".
+    path("curriculum-cbc/", include("apps.curriculum_cbc.urls")),
 ]

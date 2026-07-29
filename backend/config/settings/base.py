@@ -62,6 +62,8 @@ LOCAL_APPS: list[str] = [
     "apps.timetable",
     "apps.attendance",
     "apps.admissions",
+    # Layer 2 — curriculum plugins, must come after academics (docs/database.md §6).
+    "apps.curriculum_cbc",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.
