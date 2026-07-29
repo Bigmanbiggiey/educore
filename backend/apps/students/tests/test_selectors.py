@@ -7,6 +7,7 @@ from apps.institutions.models import Institution
 from apps.students.models import Enrollment, GuardianRelationship, Student
 from apps.students.selectors import (
     get_active_enrollment,
+    get_active_enrollments,
     get_active_roster,
     get_guardian_children,
     get_student_by_user_id,
@@ -62,6 +63,40 @@ class GetActiveRosterTests(StudentsSelectorTestCase):
         roster = get_active_roster(class_grade_id)
 
         self.assertEqual(list(roster), [active_student])
+
+
+class GetActiveEnrollmentsTests(StudentsSelectorTestCase):
+    def test_returns_only_active_enrollments_for_the_class_and_term(self):
+        class_grade_id = uuid.uuid4()
+        term_id = uuid.uuid4()
+        active_student = self._student(admission_number="ADM-001")
+        active_enrollment = Enrollment.objects.create(
+            institution_id=self.institution.id,
+            student=active_student,
+            class_grade_id=class_grade_id,
+            term_id=term_id,
+            status=Enrollment.Status.ACTIVE,
+        )
+        withdrawn_student = self._student(admission_number="ADM-002")
+        Enrollment.objects.create(
+            institution_id=self.institution.id,
+            student=withdrawn_student,
+            class_grade_id=class_grade_id,
+            term_id=term_id,
+            status=Enrollment.Status.WITHDRAWN,
+        )
+        other_term_student = self._student(admission_number="ADM-003")
+        Enrollment.objects.create(
+            institution_id=self.institution.id,
+            student=other_term_student,
+            class_grade_id=class_grade_id,
+            term_id=uuid.uuid4(),
+            status=Enrollment.Status.ACTIVE,
+        )
+
+        enrollments = get_active_enrollments(self.institution, class_grade_id, term_id)
+
+        self.assertEqual(list(enrollments), [active_enrollment])
 
 
 class GetGuardianChildrenTests(StudentsSelectorTestCase):

@@ -21,4 +21,5 @@ urlpatterns = [
     # flat Layer 0/1 apps above — docs/api-design.md §8: multiple future
     # curriculum apps will have colliding concept names like "Subject".
     path("curriculum-cbc/", include("apps.curriculum_cbc.urls")),
+    path("curriculum-844/", include("apps.curriculum_844.urls")),
 ]
