@@ -66,6 +66,7 @@ LOCAL_APPS: list[str] = [
     "apps.curriculum_cbc",
     "apps.curriculum_844",
     "apps.curriculum_british",
+    "apps.curriculum_tvet",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.

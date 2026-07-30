@@ -23,4 +23,5 @@ urlpatterns = [
     path("curriculum-cbc/", include("apps.curriculum_cbc.urls")),
     path("curriculum-844/", include("apps.curriculum_844.urls")),
     path("curriculum-british/", include("apps.curriculum_british.urls")),
+    path("curriculum-tvet/", include("apps.curriculum_tvet.urls")),
 ]
