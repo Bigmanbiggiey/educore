@@ -16,9 +16,9 @@ from api.viewsets import TenantScopedModelViewSet
 from apps.curriculum_844 import services
 from apps.curriculum_844.models import Subject
 from apps.curriculum_844.serializers import (
+    EightFourFourSubjectSerializer,
     KcpeKcseImportRequestSerializer,
     RecomputeMeanGradesRequestSerializer,
-    SubjectSerializer,
 )
 from apps.curriculum_844.tasks import recompute_mean_grades_task
 from apps.permissions.permissions import HasPermission, IsInstitutionMember
@@ -37,7 +37,7 @@ def _write_gated_by(permission_code):
 
 class SubjectViewSet(TenantScopedModelViewSet):
     queryset_model = Subject
-    serializer_class = SubjectSerializer
+    serializer_class = EightFourFourSubjectSerializer
     get_permissions = _write_gated_by("curriculum_844.subject.manage")
 
 

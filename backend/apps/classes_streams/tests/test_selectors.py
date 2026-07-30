@@ -1,7 +1,9 @@
+import uuid
+
 from django.test import TestCase
 
 from apps.classes_streams.models import AcademicYear, ClassGrade, Term
-from apps.classes_streams.selectors import get_class_grade, get_current_term
+from apps.classes_streams.selectors import get_class_grade, get_current_term, get_term
 from apps.core.context import bind_institution, current_institution
 from apps.institutions.models import Institution, InstitutionCurriculum
 
@@ -81,3 +83,28 @@ class GetClassGradeTests(TestCase):
             )
 
         self.assertIsNone(get_class_grade(other, class_grade.id))
+
+
+class GetTermTests(TestCase):
+    def setUp(self):
+        self.institution = Institution.objects.create(name="St Mary", slug="st-mary")
+        with bind_institution(self.institution):
+            year = AcademicYear.objects.create(
+                institution_id=self.institution.id,
+                year_label="2026",
+                start_date="2026-01-01",
+                end_date="2026-12-31",
+            )
+            self.term = Term.objects.create(
+                institution_id=self.institution.id,
+                academic_year=year,
+                name="Term 1",
+                start_date="2026-01-01",
+                end_date="2026-04-01",
+            )
+
+    def test_returns_the_term(self):
+        self.assertEqual(get_term(self.institution, self.term.id), self.term)
+
+    def test_returns_none_for_an_unknown_term(self):
+        self.assertIsNone(get_term(self.institution, uuid.uuid4()))

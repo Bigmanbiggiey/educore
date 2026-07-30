@@ -29,3 +29,8 @@ def get_current_term(institution: Institution) -> Term | None:
 def get_class_grade(institution: Institution, class_grade_id: uuid.UUID) -> ClassGrade | None:
     with bind_institution(institution):
         return ClassGrade.objects.filter(id=class_grade_id).first()
+
+
+def get_term(institution: Institution, term_id: uuid.UUID) -> Term | None:
+    with bind_institution(institution):
+        return Term.objects.filter(id=term_id).first()

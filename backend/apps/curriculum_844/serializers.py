@@ -10,7 +10,7 @@ from api.serializers import TenantScopedModelSerializer
 from apps.curriculum_844.models import Subject
 
 
-class SubjectSerializer(TenantScopedModelSerializer):
+class EightFourFourSubjectSerializer(TenantScopedModelSerializer):
     class Meta:
         model = Subject
         fields = ["id", "subject_catalog_id", "name", "code", "created_at", "updated_at"]
