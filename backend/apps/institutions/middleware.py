@@ -10,7 +10,11 @@ from apps.institutions.selectors import get_institution_by_domain
 
 # Infra endpoints that must answer regardless of tenant resolution (an
 # uptime monitor or Docker healthcheck has no institution context to send).
-EXEMPT_PATH_PREFIXES = ("/healthz/",)
+# The M-Pesa callback is exempt for a different reason: Safaricom calls
+# back on the platform's fixed public API host, not a per-institution
+# subdomain — the view itself resolves the institution from the URL
+# (apps/finance/webhooks.py), not from Host-header tenant resolution.
+EXEMPT_PATH_PREFIXES = ("/healthz/", "/api/v1/webhooks/mpesa/")
 
 
 class TenantMiddleware:

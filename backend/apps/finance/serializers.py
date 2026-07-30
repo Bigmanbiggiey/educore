@@ -7,6 +7,7 @@ from apps.finance.models import (
     FeeStructure,
     InstallmentPlan,
     Invoice,
+    MpesaSTKPushRequest,
     Payment,
     Receipt,
     Scholarship,
@@ -130,6 +131,36 @@ class ScholarshipSerializer(TenantScopedModelSerializer):
 
 class GenerateInvoicesResponseSerializer(serializers.Serializer):
     created = serializers.IntegerField()
+
+
+class InitiateMpesaPaymentSerializer(serializers.Serializer):
+    """`phone_number` is only honored for a Finance-Officer-initiated push
+    (`finance.payment.record`) — a self-service Parent's phone number is
+    always their own on-file `accounts.User.phone`, never client-supplied
+    (`views.py`'s dual-path handling, not this serializer). `amount`
+    defaults to the invoice's full remaining balance when omitted."""
+
+    phone_number = serializers.CharField(required=False, allow_blank=True)
+    amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
+
+
+class MpesaSTKPushRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MpesaSTKPushRequest
+        fields = [
+            "id",
+            "invoice",
+            "phone_number",
+            "amount",
+            "status",
+            "checkout_request_id",
+            "result_desc",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
 
 
 class FinancialSummarySerializer(serializers.Serializer):

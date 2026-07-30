@@ -16,6 +16,17 @@ from apps.finance.models import Invoice, Payment
 from apps.institutions.models import Institution
 
 
+def get_invoice_balance(institution: Institution, invoice: Invoice) -> Decimal:
+    """Remaining balance on this one invoice specifically — not the
+    student's whole-term balance across multiple invoices, which is what
+    `get_balance` below answers. This is the cap
+    `services.initiate_mpesa_stk_push` enforces so a push can never be
+    raised for more than what's actually still owed on it."""
+    with bind_institution(institution):
+        total_paid = invoice.payments.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        return invoice.amount_due - total_paid
+
+
 def get_balance(
     institution: Institution, student_id: uuid.UUID, term_id: uuid.UUID | None = None
 ) -> Decimal:

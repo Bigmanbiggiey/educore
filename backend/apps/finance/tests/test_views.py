@@ -249,3 +249,119 @@ class PaymentIdempotencyTests(FinanceAPITestCase):
 
         with bind_institution(self.institution):
             self.assertEqual(self.invoice.payments.count(), 2)
+
+
+class InitiateMpesaPaymentActionTests(FinanceAPITestCase):
+    # base.py's default MPESA_GATEWAY_BACKEND is FakeMpesaGatewayBackend —
+    # no network involved in any of these tests.
+
+    def setUp(self):
+        super().setUp()
+        with bind_institution(self.institution):
+            self.child = Student.objects.create(
+                institution_id=self.institution.id,
+                admission_number="ADM-001",
+                first_name="Amina",
+                last_name="Otieno",
+            )
+            self.invoice = Invoice.objects.create(
+                institution_id=self.institution.id,
+                student_id=self.child.id,
+                term_id=uuid.uuid4(),
+                amount_due="1000.00",
+            )
+            GuardianRelationship.objects.create(
+                institution_id=self.institution.id,
+                student=self.child,
+                guardian_user_id=self.user.id,
+                relationship_type=GuardianRelationship.RelationshipType.PARENT,
+                is_primary_contact=True,
+            )
+        self.url = reverse(
+            "v1:finance:invoice-initiate-mpesa-payment", kwargs={"pk": self.invoice.id}
+        )
+
+    def test_with_no_permission_or_role_is_denied(self):
+        response = self.client.post(
+            self.url, {"phone_number": "254712345678"}, format="json", HTTP_HOST=HOSTNAME
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_officer_path_requires_phone_number_in_body(self):
+        self._grant("finance.payment.record")
+
+        response = self.client.post(self.url, {}, format="json", HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_officer_path_uses_the_body_supplied_phone_number(self):
+        self._grant("finance.payment.record")
+
+        response = self.client.post(
+            self.url, {"phone_number": "254798765432"}, format="json", HTTP_HOST=HOSTNAME
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.data["phone_number"], "254798765432")
+        self.assertEqual(response.data["status"], "pending")
+
+    def test_parent_path_uses_their_own_profile_phone_never_the_body(self):
+        self.user.phone = "254711223344"
+        self.user.save(update_fields=["phone"])
+        self._grant("finance.invoice.view", role_name="Parent")
+
+        response = self.client.post(
+            # Attempting to override with someone else's number — must be ignored.
+            self.url,
+            {"phone_number": "254700000000"},
+            format="json",
+            HTTP_HOST=HOSTNAME,
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.data["phone_number"], "254711223344")
+
+    def test_parent_path_without_a_phone_on_file_is_rejected(self):
+        self._grant("finance.invoice.view", role_name="Parent")
+
+        response = self.client.post(self.url, {}, format="json", HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_parent_cannot_initiate_for_another_students_invoice(self):
+        with bind_institution(self.institution):
+            other_student = Student.objects.create(
+                institution_id=self.institution.id,
+                admission_number="ADM-002",
+                first_name="Brian",
+                last_name="Kamau",
+            )
+            other_invoice = Invoice.objects.create(
+                institution_id=self.institution.id,
+                student_id=other_student.id,
+                term_id=uuid.uuid4(),
+                amount_due="500.00",
+            )
+        self.user.phone = "254711223344"
+        self.user.save(update_fields=["phone"])
+        self._grant("finance.invoice.view", role_name="Parent")
+        url = reverse(
+            "v1:finance:invoice-initiate-mpesa-payment", kwargs={"pk": other_invoice.id}
+        )
+
+        response = self.client.post(url, {}, format="json", HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_rate_limit_trips_after_the_configured_ceiling(self):
+        self._grant("finance.payment.record")
+
+        responses = [
+            self.client.post(
+                self.url, {"phone_number": "254712345678"}, format="json", HTTP_HOST=HOSTNAME
+            )
+            for _ in range(6)
+        ]
+
+        self.assertEqual([r.status_code for r in responses[:5]], [202] * 5)
+        self.assertEqual(responses[5].status_code, 429)

@@ -5,11 +5,13 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.core.context import bind_institution
-from apps.finance.models import Invoice, Payment, Scholarship
+from apps.finance.models import Invoice, MpesaSTKPushRequest, Payment, Scholarship
 from apps.finance.services import (
     create_fee_structure,
     generate_invoices_for_class,
     grant_scholarship,
+    handle_mpesa_callback,
+    initiate_mpesa_stk_push,
     record_payment,
     set_installment_plan,
 )
@@ -228,3 +230,192 @@ class GrantScholarshipTests(FinanceServiceTestCase):
 
         self.assertTrue(scholarship.is_percent)
         self.assertEqual(scholarship.funded_by, "Alumni Fund")
+
+
+class InitiateMpesaStkPushTests(FinanceServiceTestCase):
+    # base.py's default MPESA_GATEWAY_BACKEND is FakeMpesaGatewayBackend —
+    # no network, no settings override needed here.
+
+    def _invoice(self, amount_due="1000.00"):
+        with bind_institution(self.institution):
+            return Invoice.objects.create(
+                institution_id=self.institution.id,
+                student_id=uuid.uuid4(),
+                term_id=uuid.uuid4(),
+                amount_due=Decimal(amount_due),
+            )
+
+    def test_defaults_amount_to_the_full_remaining_balance(self):
+        invoice = self._invoice()
+
+        stk_request = initiate_mpesa_stk_push(
+            institution=self.institution,
+            invoice=invoice,
+            phone_number="254712345678",
+            amount=None,
+            initiated_by_id=uuid.uuid4(),
+        )
+
+        self.assertEqual(stk_request.amount, Decimal("1000.00"))
+        self.assertEqual(stk_request.status, MpesaSTKPushRequest.Status.PENDING)
+        self.assertTrue(stk_request.checkout_request_id)
+
+    def test_rejects_amount_exceeding_the_remaining_balance(self):
+        invoice = self._invoice(amount_due="500.00")
+
+        with self.assertRaises(ValueError):
+            initiate_mpesa_stk_push(
+                institution=self.institution,
+                invoice=invoice,
+                phone_number="254712345678",
+                amount=Decimal("600.00"),
+                initiated_by_id=uuid.uuid4(),
+            )
+
+    def test_rejects_a_non_positive_amount(self):
+        invoice = self._invoice()
+
+        with self.assertRaises(ValueError):
+            initiate_mpesa_stk_push(
+                institution=self.institution,
+                invoice=invoice,
+                phone_number="254712345678",
+                amount=Decimal("0"),
+                initiated_by_id=uuid.uuid4(),
+            )
+
+    def test_caps_at_the_remaining_balance_after_a_partial_payment(self):
+        invoice = self._invoice()
+        record_payment(
+            institution=self.institution,
+            invoice=invoice,
+            amount=Decimal("400.00"),
+            method=Payment.Method.CASH,
+            reference="",
+            paid_at=timezone.now(),
+            recorded_by_id=None,
+        )
+        invoice.refresh_from_db()
+
+        with self.assertRaises(ValueError):
+            initiate_mpesa_stk_push(
+                institution=self.institution,
+                invoice=invoice,
+                phone_number="254712345678",
+                amount=Decimal("601.00"),
+                initiated_by_id=uuid.uuid4(),
+            )
+
+        stk_request = initiate_mpesa_stk_push(
+            institution=self.institution,
+            invoice=invoice,
+            phone_number="254712345678",
+            amount=Decimal("600.00"),
+            initiated_by_id=uuid.uuid4(),
+        )
+        self.assertEqual(stk_request.amount, Decimal("600.00"))
+
+
+class HandleMpesaCallbackTests(FinanceServiceTestCase):
+    def _invoice(self, amount_due="1000.00"):
+        with bind_institution(self.institution):
+            return Invoice.objects.create(
+                institution_id=self.institution.id,
+                student_id=uuid.uuid4(),
+                term_id=uuid.uuid4(),
+                amount_due=Decimal(amount_due),
+            )
+
+    def _pending_request(self, invoice, amount="1000.00"):
+        with bind_institution(self.institution):
+            return MpesaSTKPushRequest.objects.create(
+                institution_id=self.institution.id,
+                invoice=invoice,
+                phone_number="254712345678",
+                amount=Decimal(amount),
+                verification_token="tok",
+                checkout_request_id="ws_CO_1",
+            )
+
+    def _metadata(self, amount="1000.00", receipt="NLJ7RT61SV"):
+        return {
+            "amount": Decimal(amount),
+            "mpesa_receipt_number": receipt,
+            "transaction_date": timezone.now(),
+            "phone_number": "254712345678",
+        }
+
+    def test_success_creates_payment_and_finalizes_the_invoice(self):
+        invoice = self._invoice()
+        stk_request = self._pending_request(invoice)
+
+        result = handle_mpesa_callback(
+            institution=self.institution,
+            stk_request=stk_request,
+            result_code=0,
+            result_desc="The service request is processed successfully.",
+            callback_metadata=self._metadata(),
+        )
+
+        self.assertEqual(result.status, MpesaSTKPushRequest.Status.SUCCESS)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.PAID)
+        with bind_institution(self.institution):
+            payment = Payment.objects.get(mpesa_transaction_id="NLJ7RT61SV")
+            self.assertEqual(payment.method, Payment.Method.MPESA)
+            self.assertTrue(payment.receipt.receipt_number.startswith("RCPT-"))
+
+    def test_duplicate_callback_does_not_create_a_second_payment(self):
+        invoice = self._invoice()
+        stk_request = self._pending_request(invoice)
+        handle_mpesa_callback(
+            institution=self.institution,
+            stk_request=stk_request,
+            result_code=0,
+            result_desc="ok",
+            callback_metadata=self._metadata(),
+        )
+        stk_request.refresh_from_db()
+
+        # Same request delivered again — Safaricom's own retry-on-timeout
+        # behavior. Must be a no-op, not a second Payment.
+        handle_mpesa_callback(
+            institution=self.institution,
+            stk_request=stk_request,
+            result_code=0,
+            result_desc="ok",
+            callback_metadata=self._metadata(),
+        )
+
+        with bind_institution(self.institution):
+            self.assertEqual(Payment.objects.filter(invoice=invoice).count(), 1)
+
+    def test_cancelled_result_code_marks_the_request_cancelled(self):
+        invoice = self._invoice()
+        stk_request = self._pending_request(invoice)
+
+        result = handle_mpesa_callback(
+            institution=self.institution,
+            stk_request=stk_request,
+            result_code=1032,
+            result_desc="Request cancelled by user",
+            callback_metadata=None,
+        )
+
+        self.assertEqual(result.status, MpesaSTKPushRequest.Status.CANCELLED)
+        with bind_institution(self.institution):
+            self.assertEqual(Payment.objects.filter(invoice=invoice).count(), 0)
+
+    def test_other_failure_result_code_marks_the_request_failed(self):
+        invoice = self._invoice()
+        stk_request = self._pending_request(invoice)
+
+        result = handle_mpesa_callback(
+            institution=self.institution,
+            stk_request=stk_request,
+            result_code=1037,
+            result_desc="Timeout",
+            callback_metadata=None,
+        )
+
+        self.assertEqual(result.status, MpesaSTKPushRequest.Status.FAILED)

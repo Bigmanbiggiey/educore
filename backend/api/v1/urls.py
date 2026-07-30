@@ -1,5 +1,7 @@
 from django.urls import include, path
 
+from apps.finance.webhooks import MpesaCallbackView
+
 app_name = "v1"
 
 urlpatterns = [
@@ -26,4 +28,13 @@ urlpatterns = [
     path("curriculum-tvet/", include("apps.curriculum_tvet.urls")),
     path("curriculum-university/", include("apps.curriculum_university.urls")),
     path("", include("apps.finance.urls")),
+    # Outside TenantMiddleware's normal tenant resolution (Safaricom calls
+    # back on the fixed public API host, not a per-institution subdomain —
+    # see apps/finance/webhooks.py's module docstring) — institution_id and
+    # stk_request_id are embedded in the URL itself instead.
+    path(
+        "webhooks/mpesa/callback/<uuid:institution_id>/<uuid:stk_request_id>/<str:token>/",
+        MpesaCallbackView.as_view(),
+        name="mpesa-callback",
+    ),
 ]

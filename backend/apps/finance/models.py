@@ -2,8 +2,11 @@
 — every write audited)", docs/modules.md (`finance`).
 
 Phase 4 Stage 1 scope: core billing and manual payments (cash/bank, plus a
-manually-reconciled M-Pesa reference) — `Payroll`/`ExpenseRecord` and the
-live M-Pesa STK Push/callback integration are later stages
+manually-reconciled M-Pesa reference). Stage 2 adds the live M-Pesa STK
+Push/callback integration: `MpesaSTKPushRequest` (the pending-request
+lifecycle — a push can be sent and never confirmed) and
+`Payment.mpesa_transaction_id` (what the callback upserts on, per
+docs/api-design.md §11). `Payroll`/`ExpenseRecord` remain a later stage
 (docs/roadmap.md).
 
 `Invoice`/`Payment` use `TenantScopedSoftDeleteModel` — both are named
@@ -125,19 +128,22 @@ class Payment(TenantScopedSoftDeleteModel):
 
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="payments")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    # "mpesa" here means a manually-entered reconciliation reference (a
-    # Finance Officer typing in a till/paybill confirmation code) — the
-    # live Safaricom Daraja STK Push + callback integration is a later
-    # stage (docs/roadmap.md), which will upsert on M-Pesa's own
-    # TransactionID rather than going through this manual path at all.
+    # "mpesa" covers both a manually-entered reconciliation reference (a
+    # Finance Officer typing in a till/paybill confirmation code, Stage 1)
+    # and a confirmed STK Push (Stage 2, `mpesa_transaction_id` set).
     method = models.CharField(max_length=10, choices=Method.choices)
     reference = models.CharField(max_length=100, blank=True, default="")
+    # M-Pesa's own `MpesaReceiptNumber` from a confirmed STK Push callback —
+    # what `services.handle_mpesa_callback` upserts a `Payment` on
+    # (docs/api-design.md §11: "a duplicate callback is a no-op 200, never
+    # a duplicate payment"). Null for Stage 1 manual entries.
+    mpesa_transaction_id = models.CharField(max_length=30, null=True, blank=True)
     paid_at = models.DateTimeField()
     # Server-injected from request.user.id in services.record_payment,
     # never client-supplied — same pattern as
     # curriculum_british.set_predicted_grade's set_by. Nullable: a
-    # system/Celery-initiated payment (e.g. a future M-Pesa webhook) has no
-    # human actor, same reasoning as audit.AuditLog.actor.
+    # system/Celery-initiated payment (e.g. an M-Pesa webhook) has no human
+    # actor, same reasoning as audit.AuditLog.actor.
     recorded_by_id = models.UUIDField(null=True, blank=True)
 
     class Meta:
@@ -145,6 +151,11 @@ class Payment(TenantScopedSoftDeleteModel):
 
     Meta.constraints = [
         models.CheckConstraint(condition=models.Q(amount__gt=0), name="payment_amount_positive"),
+        models.UniqueConstraint(
+            fields=["institution_id", "mpesa_transaction_id"],
+            condition=models.Q(mpesa_transaction_id__isnull=False),
+            name="payment_unique_mpesa_transaction_id",
+        ),
     ]
 
     Meta.indexes = [
@@ -176,6 +187,70 @@ class Receipt(TenantScopedModel):
 
     def __str__(self) -> str:
         return f"Receipt {self.receipt_number}"
+
+
+class MpesaSTKPushRequest(TenantScopedModel):
+    """The pending-request lifecycle for a Safaricom STK Push — a push can
+    be sent and never confirmed (customer cancels, wrong PIN, timeout), so
+    this is deliberately separate from `Payment`, which represents a
+    confirmed, "it happened" record — same "current value + history table"
+    split as `admissions.Application`/`ApplicationStage`. A `Payment` row
+    is only ever created once `services.handle_mpesa_callback` sees a
+    successful result, never at initiation time.
+
+    `verification_token` is embedded in the callback URL Safaricom is told
+    to call (`services.initiate_mpesa_stk_push`) and re-checked via
+    `hmac.compare_digest` in `webhooks.MpesaCallbackView` before anything
+    else runs — a second, DB-independent check alongside the source-IP
+    allowlist, since Safaricom's STK Push callback carries no cryptographic
+    payload signature of its own (docs/api-design.md §11's "signature"
+    requirement, met the only way actually available here).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    invoice = models.ForeignKey(
+        Invoice, on_delete=models.CASCADE, related_name="mpesa_stk_requests"
+    )
+    phone_number = models.CharField(max_length=15)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    merchant_request_id = models.CharField(max_length=50, blank=True, default="")
+    checkout_request_id = models.CharField(max_length=50, blank=True, default="")
+    verification_token = models.CharField(max_length=64)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    result_code = models.IntegerField(null=True, blank=True)
+    result_desc = models.CharField(max_length=255, blank=True, default="")
+    # Set once a confirmed callback creates the resulting Payment.
+    payment = models.OneToOneField(
+        Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name="mpesa_stk_request"
+    )
+    # The acting user — a Finance Officer (on behalf of someone) or a
+    # self-service Parent (only ever their own phone number, never
+    # client-supplied — enforced in views.py, not here).
+    initiated_by_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    Meta.constraints = [
+        models.CheckConstraint(
+            condition=models.Q(amount__gt=0), name="mpesastkpush_amount_positive"
+        ),
+        models.CheckConstraint(
+            condition=models.Q(status__in=Status.values), name="mpesastkpush_valid_status"
+        ),
+    ]
+
+    Meta.indexes = [
+        models.Index(fields=["institution_id", "checkout_request_id"]),
+    ]
+
+    def __str__(self) -> str:
+        return f"STK Push — invoice {self.invoice_id} — {self.get_status_display()}"
 
 
 class Scholarship(TenantScopedModel):

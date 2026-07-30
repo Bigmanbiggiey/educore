@@ -222,6 +222,10 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "5/min",
         "user": "600/min",
+        # apps.finance.views.MpesaInitiateThrottle — the one action that
+        # can push an M-Pesa PIN prompt to a phone number, capped hard
+        # against a compromised/malicious account (Phase 4 Stage 2).
+        "mpesa_initiate": "5/hour",
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # api.exception_handlers.custom_exception_handler implements the uniform
@@ -276,6 +280,32 @@ NOTIFICATION_CHANNEL_BACKENDS = {
     "email": "apps.notifications_core.backends.ConsoleChannelBackend",
     "push": "apps.notifications_core.backends.ConsoleChannelBackend",
 }
+
+# --------------------------------------------------------------------------
+# M-Pesa (Safaricom Daraja) — Phase 4 Stage 2 (docs/roadmap.md)
+# --------------------------------------------------------------------------
+
+# Settings-driven backend swap, same "swap the implementation without
+# touching call sites" shape as NOTIFICATION_CHANNEL_BACKENDS above. Default
+# is the no-network Fake backend — a real deployment opts into the live
+# gateway explicitly via .env, never by accident.
+MPESA_GATEWAY_BACKEND = env(
+    "MPESA_GATEWAY_BACKEND", default="apps.finance.mpesa_backends.FakeMpesaGatewayBackend"
+)
+# "sandbox" or "production" — selects Daraja's base URL.
+MPESA_ENV = env("MPESA_ENV", default="sandbox")
+MPESA_CONSUMER_KEY = env("MPESA_CONSUMER_KEY", default="")
+MPESA_CONSUMER_SECRET = env("MPESA_CONSUMER_SECRET", default="")
+MPESA_SHORTCODE = env("MPESA_SHORTCODE", default="")
+MPESA_PASSKEY = env("MPESA_PASSKEY", default="")
+# Public HTTPS origin Safaricom calls back to — e.g. https://api.educore.africa
+# (docs/api-design.md §11). No trailing slash.
+MPESA_CALLBACK_BASE_URL = env("MPESA_CALLBACK_BASE_URL", default="")
+# Comma-separated Safaricom source IPs the callback view checks against
+# (docs/api-design.md §13: "the source-IP allowlist is the actual control").
+# Empty in dev — same empty-in-dev-only pattern as PLATFORM_HOSTS, since
+# there's no real Safaricom traffic to allowlist locally.
+MPESA_CALLBACK_IP_ALLOWLIST = env.list("MPESA_CALLBACK_IP_ALLOWLIST", default=[])
 
 # --------------------------------------------------------------------------
 # Logging — structured JSON to stdout, correlation-ID-friendly

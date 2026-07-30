@@ -21,7 +21,9 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
@@ -42,8 +44,10 @@ from apps.finance.serializers import (
     FeeStructureSerializer,
     FinancialSummarySerializer,
     GenerateInvoicesResponseSerializer,
+    InitiateMpesaPaymentSerializer,
     InstallmentPlanSerializer,
     InvoiceSerializer,
+    MpesaSTKPushRequestSerializer,
     PaymentSerializer,
     ReceiptSerializer,
     ScholarshipSerializer,
@@ -101,11 +105,41 @@ class FeeStructureViewSet(TenantScopedModelViewSet):
         )
 
 
+class _CanInitiateMpesaPayment(BasePermission):
+    """Either a Finance Officer (`finance.payment.record`) or a
+    self-service Parent — object-scoping is already handled by
+    `InvoiceViewSet.get_queryset()`, which `get_object()` goes through: a
+    Parent hitting this action for another student's invoice already 404s
+    before this permission is even consulted, same as any other Invoice
+    action."""
+
+    def has_permission(self, request, view) -> bool:
+        institution = getattr(request, "institution", None)
+        if institution is None or not request.user.is_authenticated:
+            return False
+        access = get_membership_access(request.user, institution)
+        return "finance.payment.record" in access.permission_codes or "Parent" in access.role_names
+
+
+class MpesaInitiateThrottle(UserRateThrottle):
+    """Tightest throttle in this app — the one action that can push a PIN
+    prompt to a phone number, so it's also the one most worth capping hard
+    against a compromised/malicious account spamming a stranger's phone."""
+
+    scope = "mpesa_initiate"
+
+
 class InvoiceViewSet(TenantScopedModelViewSet):
     queryset_model = Invoice
     serializer_class = InvoiceSerializer
     filterset_class = InvoiceFilterSet
-    get_permissions = _view_and_manage("finance.invoice.view", "finance.invoice.manage")
+
+    def get_permissions(self):
+        if self.action == "initiate_mpesa_payment":
+            return [IsInstitutionMember(), _CanInitiateMpesaPayment()]
+        if self.action in _WRITE_ACTIONS:
+            return [IsInstitutionMember(), HasPermission("finance.invoice.manage")()]
+        return [IsInstitutionMember(), HasPermission("finance.invoice.view")()]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -123,6 +157,50 @@ class InvoiceViewSet(TenantScopedModelViewSet):
                 return self.get_base_queryset().none()
             return self.get_base_queryset().filter(student_id=student.id)
         return self.get_base_queryset()
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="initiate-mpesa-payment",
+        throttle_classes=[MpesaInitiateThrottle],
+    )
+    def initiate_mpesa_payment(self, request, pk=None):
+        invoice = self.get_object()
+        serializer = InitiateMpesaPaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        access = get_membership_access(request.user, request.institution)
+        if "finance.payment.record" in access.permission_codes:
+            phone_number = data.get("phone_number")
+            if not phone_number:
+                raise ValidationError({"phone_number": ["This field is required."]})
+        else:
+            # Self-service Parent path — phone number is always their own
+            # on-file number, never client-supplied, regardless of what
+            # was sent in the request body.
+            phone_number = request.user.phone
+            if not phone_number:
+                raise ValidationError(
+                    {
+                        "phone_number": [
+                            "No phone number on file — add one to your profile first."
+                        ]
+                    }
+                )
+
+        try:
+            stk_request = services.initiate_mpesa_stk_push(
+                institution=request.institution,
+                invoice=invoice,
+                phone_number=phone_number,
+                amount=data.get("amount"),
+                initiated_by_id=request.user.id,
+            )
+        except ValueError as exc:
+            raise ValidationError({"amount": [str(exc)]}) from exc
+
+        return Response(MpesaSTKPushRequestSerializer(stk_request).data, status=202)
 
 
 class InstallmentPlanViewSet(TenantScopedModelViewSet):
