@@ -18,7 +18,7 @@ boundaries and minimizing technical debt.
 |--------|--------|
 | Phase 1 – Platform Foundation | ✅ Complete |
 | Phase 2 – Core Academic Engine | ✅ Complete |
-| Phase 3 – Curriculum Plugin Framework | 🚧 In Progress (framework + CBC done; 844/British/TVET/University pending) |
+| Phase 3 – Curriculum Plugin Framework | ✅ Complete (framework + all five plugins — CBC, 8-4-4, British, TVET, University; Plugin SDK testing/version-compatibility tooling deliberately deferred) |
 | Phase 4 – Finance | ⏳ Planned |
 | Phase 5 – Communication | ⏳ Planned |
 | Phase 6 – Operations | ⏳ Planned |
