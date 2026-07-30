@@ -14,6 +14,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from apps.accounts.models import User
     from apps.institutions.models import Institution
 
 current_institution: ContextVar[Institution | None] = ContextVar(
@@ -24,6 +25,15 @@ current_institution: ContextVar[Institution | None] = ContextVar(
 # §6) can attach the current request's correlation ID to every log line
 # without every call site threading it through explicitly.
 correlation_id_ctx: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+
+# Bound by api.viewsets.TenantScopedModelViewSet for the duration of a
+# request, once request.user is known — not by TenantMiddleware, since
+# TenantMiddleware runs before authentication (docs/authentication.md §6).
+# Consumed by audit-signal wiring (first real consumer: apps.finance.signals,
+# docs/checklist.md's "Audit-log signals confirmed firing on every finance
+# write") so a signal handler can attribute a write to its actor without
+# every call site threading a user through explicitly.
+current_user: ContextVar[User | None] = ContextVar("current_user", default=None)
 
 
 class TenantContextMissing(Exception):
@@ -48,3 +58,18 @@ def bind_institution(institution: Institution) -> Iterator[None]:
         yield
     finally:
         current_institution.reset(token)
+
+
+@contextmanager
+def bind_actor(user: User | None) -> Iterator[None]:
+    """Bind `user` as the current actor for the duration of the block —
+    same set/reset-in-a-finally discipline as `bind_institution`. The one
+    real call site is `api.viewsets.TenantScopedModelViewSet`; tests/Celery
+    tasks with no authenticated user simply don't bind one, leaving
+    `current_user.get()` at its `None` default (audit rows already allow a
+    null actor for system/Celery-initiated actions, docs/database.md §2)."""
+    token = current_user.set(user)
+    try:
+        yield
+    finally:
+        current_user.reset(token)

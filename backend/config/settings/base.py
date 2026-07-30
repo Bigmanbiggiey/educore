@@ -68,6 +68,8 @@ LOCAL_APPS: list[str] = [
     "apps.curriculum_british",
     "apps.curriculum_tvet",
     "apps.curriculum_university",
+    # Phase 4 Stage 1 — core billing/manual payments (docs/roadmap.md).
+    "apps.finance",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.

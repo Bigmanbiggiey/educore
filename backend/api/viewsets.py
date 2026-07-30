@@ -15,13 +15,33 @@ startup, before serving a single request. `get_queryset` below resolves
 `queryset_model.objects.all()` fresh on every call instead, by which point
 a request (and its bound tenant) is always in progress — the standard DRF
 pattern for any per-request-dynamic queryset.
+
+Also binds `apps.core.context.current_user` for the span of the request
+(`initial()` through `finalize_response()`) — `TenantMiddleware` can't do
+this itself, since it runs before DRF authentication resolves `request.user`
+(docs/authentication.md §6). This is what makes `apps.finance.signals`'
+audit-signal wiring able to attribute a write to its actor without every
+call site threading a user through explicitly.
 """
 
 from rest_framework import viewsets
 
+from apps.core.context import current_user
+
 
 class TenantScopedModelViewSet(viewsets.ModelViewSet):
     queryset_model = None
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        actor = request.user if request.user.is_authenticated else None
+        self._actor_token = current_user.set(actor)
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        token = getattr(self, "_actor_token", None)
+        if token is not None:
+            current_user.reset(token)
+        return super().finalize_response(request, response, *args, **kwargs)
 
     def get_base_queryset(self):
         """The full tenant-scoped queryset for `queryset_model`. Subclasses

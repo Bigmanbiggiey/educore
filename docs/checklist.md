@@ -204,12 +204,22 @@ testing-framework/version-compatibility tooling remains an explicit follow-up
 
 ## Phase 4 — Finance
 
-- [ ] `finance` — `FeeStructure`, `Invoice`, `Payment`, `Receipt`, `InstallmentPlan`, `Scholarship`, `Payroll`, `ExpenseRecord`
-- [ ] M-Pesa payment integration
-- [ ] Bank payment recording
-- [ ] Cash payment recording
-- [ ] Financial reports
-- [ ] Audit-log signals confirmed firing on every finance write (compliance-sensitive per `docs/architecture.md` §6)
+**Staged rather than built in one pass** (confirmed with the user up front,
+same call made for Phase 3's curriculum plugins) — Stage 1 covers core
+billing and manual payments; the live M-Pesa STK Push/callback integration
+and `Payroll`/`ExpenseRecord` are later stages.
+
+- [x] Stage 1 — `finance`: `FeeStructure` (`class_grade_id`/`term_id` plain cross-app UUIDs to `classes_streams`; `line_items` a `DjangoJSONEncoder`-backed `JSONField` list of `{description, amount}` — same "too institution-specific for a fixed schema" call as `academics.GradingScale.levels`; `total_amount` computed by `services.create_fee_structure` from `line_items`, never entered redundantly), `Invoice`/`Payment` (`TenantScopedSoftDeleteModel` — both named explicitly in `apps.core.models.TenantScopedSoftDeleteModel`'s own docstring), `InstallmentPlan` (plain FK to `Invoice`, not `OneToOne` — same "revise without destroying history" reasoning as `admissions.Offer`'s FK-not-OneToOne precedent), `Receipt` (`OneToOneField` to `Payment`, sequential `receipt_number` unique per institution; `pdf_document` deliberately left blank — real PDF rendering belongs to the not-yet-built `documents`/`reports` apps, same "don't build against a dependency that doesn't exist yet" call `staff` made in Phase 2), `Scholarship` (`amount_or_percent` + an `is_percent` flag rather than one field typed two ways).
+- [x] `services.generate_invoices_for_class` loops and calls `Invoice.objects.create(...)` per student rather than `bulk_create` — a deliberate choice: `bulk_create` doesn't fire `post_save` signals, which would silently skip the audit-log wiring below for every generated invoice. `services.record_payment` recomputes `Invoice.status` (unpaid/partial/paid) from `sum(payments)` vs `amount_due` and creates the matching `Receipt`, all inside one `transaction.atomic()`.
+- [x] Bank/cash payment recording — `Payment.method` (`mpesa`/`cash`/`bank`); `mpesa` here means a manually-entered reconciliation reference (a Finance Officer typing in a till/paybill confirmation code), not yet a live gateway call — that's Stage 2.
+- [x] Financial reports (basic) — `selectors.get_balance`/`get_institution_financial_summary` (totals invoiced/collected/outstanding, breakdown by payment method) and `GET /api/v1/finance/reports/summary/`. Deeper analytics/exports are explicitly left to `analytics`/`reports` (Phase 8), not guessed at here.
+- [x] Audit-log signals confirmed firing on every finance write (`apps/finance/signals.py`, wired in `FinanceConfig.ready()`) — the first app to actually connect `audit.services.log_action`, which had sat with no production caller since Phase 1. Needed one small piece of new shared infra: `apps.core.context.current_user` (+ `bind_actor`), bound by `api.viewsets.TenantScopedModelViewSet.initial()`/`finalize_response()` rather than `TenantMiddleware`, since middleware runs before DRF authentication resolves `request.user` (docs/authentication.md §6). Verified live: every `Invoice`/`Payment` write over real HTTP produced an `AuditLog` row with the correct actor and institution.
+- [x] `Idempotency-Key` support for manual payment entry (docs/api-design.md §11) — new `api/idempotency.py` (`replay_or_execute`, Redis-backed, additive: no header means no behavior change), used only by `PaymentViewSet.create`. Verified live: replaying the same key returned the identical cached `Payment`, not a duplicate.
+- [x] `InvoiceViewSet` reads are object-scoped for Parent/Student, same fail-closed pattern as `students.StudentViewSet`/`academics.ReportCardView` — the one place `finance` genuinely imports `apps.students` (read-only selectors: `get_guardian_children`, `get_student_by_user_id`, `get_active_roster`), which is why `finance` got its own `finance-dependencies` `.importlinter` contract rather than joining the flat Layer-1-siblings-independent set, same shape `academics` already established for the identical reason.
+- [ ] Live M-Pesa STK Push + callback integration (`POST /api/v1/webhooks/mpesa/callback/`, upserted on M-Pesa's `TransactionID` — docs/api-design.md §11) — Stage 2.
+- [ ] `Payroll`, `ExpenseRecord` — Stage 3.
+
+  Verified via ruff, `manage.py check`, `makemigrations --check` (clean before/after `migrate` on a fresh DB), `pytest` (518/518 across every app, live Postgres+Redis, no regressions from the shared `api/viewsets.py`/`apps/core/context.py` changes), `lint-imports` fully fresh (13 contracts, all kept — new `finance-dependencies` layers contract), `manage.py spectacular --fail-on-warn` (clean), and a live end-to-end run against a real running server: create a `FeeStructure` → `generate-invoices` produces one `Invoice` for the actively-enrolled student → a cash `Payment` covering it flips the invoice to `paid` and auto-creates a sequential `Receipt` → the financial summary reflects the total → replaying the same `Payment` POST with the same `Idempotency-Key` returns the cached response, not a duplicate → the student's guardian sees only their own child's invoice over `/api/v1/invoices/` → `AuditLog` rows exist for every `Invoice`/`Payment` write with the correct actor.
 
 ### Milestone
 

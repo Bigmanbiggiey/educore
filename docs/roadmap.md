@@ -19,7 +19,7 @@ boundaries and minimizing technical debt.
 | Phase 1 – Platform Foundation | ✅ Complete |
 | Phase 2 – Core Academic Engine | ✅ Complete |
 | Phase 3 – Curriculum Plugin Framework | ✅ Complete (framework + all five plugins — CBC, 8-4-4, British, TVET, University; Plugin SDK testing/version-compatibility tooling deliberately deferred) |
-| Phase 4 – Finance | ⏳ Planned |
+| Phase 4 – Finance | 🔶 In Progress (Stage 1 — core billing/manual payments — complete; M-Pesa STK Push/callback integration and Payroll/ExpenseRecord remain) |
 | Phase 5 – Communication | ⏳ Planned |
 | Phase 6 – Operations | ⏳ Planned |
 | Phase 7 – Campus Services | ⏳ Planned |
