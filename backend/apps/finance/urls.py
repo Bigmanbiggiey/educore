@@ -2,11 +2,13 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from apps.finance.views import (
+    ExpenseRecordViewSet,
     FeeStructureViewSet,
     FinancialSummaryView,
     InstallmentPlanViewSet,
     InvoiceViewSet,
     PaymentViewSet,
+    PayrollViewSet,
     ReceiptViewSet,
     ScholarshipViewSet,
 )
@@ -20,6 +22,8 @@ router.register("installment-plans", InstallmentPlanViewSet, basename="installme
 router.register("payments", PaymentViewSet, basename="payment")
 router.register("receipts", ReceiptViewSet, basename="receipt")
 router.register("scholarships", ScholarshipViewSet, basename="scholarship")
+router.register("payroll-records", PayrollViewSet, basename="payroll-record")
+router.register("expense-records", ExpenseRecordViewSet, basename="expense-record")
 
 urlpatterns = [
     *router.urls,

@@ -15,6 +15,7 @@ generated invoice. Correctness of the audit trail outweighs the bulk-insert
 performance win here.
 """
 
+import datetime
 import secrets
 import uuid
 from decimal import Decimal
@@ -25,11 +26,13 @@ from django.db.models import Sum
 
 from apps.core.context import bind_institution
 from apps.finance.models import (
+    ExpenseRecord,
     FeeStructure,
     InstallmentPlan,
     Invoice,
     MpesaSTKPushRequest,
     Payment,
+    Payroll,
     Receipt,
     Scholarship,
 )
@@ -291,4 +294,56 @@ def grant_scholarship(
             amount_or_percent=amount_or_percent,
             is_percent=is_percent,
             funded_by=funded_by,
+        )
+
+
+def create_payroll_record(
+    *,
+    institution: Institution,
+    staff_id: uuid.UUID,
+    period: datetime.date,
+    gross: Decimal,
+    deductions: list[dict],
+    paid_at,
+) -> Payroll:
+    """`net` is computed here, never entered redundantly by the caller —
+    same "computed, not redundant" precedent as
+    `create_fee_structure`'s `total_amount`. Deliberately not clamped at
+    zero: deductions can legitimately exceed gross (e.g. a loan recovery
+    month), and `net` should reflect that truthfully."""
+    total_deductions = sum((Decimal(str(item["amount"])) for item in deductions), Decimal("0"))
+    with bind_institution(institution):
+        return Payroll.objects.create(
+            institution_id=institution.id,
+            staff_id=staff_id,
+            period=period,
+            gross=gross,
+            deductions=deductions,
+            net=gross - total_deductions,
+            paid_at=paid_at,
+        )
+
+
+def record_expense(
+    *,
+    institution: Institution,
+    category: str,
+    amount: Decimal,
+    incurred_at: datetime.date,
+    approved_by_id: uuid.UUID | None,
+) -> ExpenseRecord:
+    """`docs/database.md` lists `ExpenseRecord` as one flat row, not a
+    proposal/approval-stage pair — same "don't invent a stage history the
+    docs don't specify" call already made for `Scholarship`.
+    `approved_by_id` is server-injected from `request.user.id` by the
+    caller (`views.py`), never client-supplied: only someone holding
+    `finance.expense_record.manage` can write one at all, so their write
+    *is* the approval — same pattern as `Payment.recorded_by_id`."""
+    with bind_institution(institution):
+        return ExpenseRecord.objects.create(
+            institution_id=institution.id,
+            category=category,
+            amount=amount,
+            incurred_at=incurred_at,
+            approved_by_id=approved_by_id,
         )

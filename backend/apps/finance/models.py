@@ -105,12 +105,10 @@ class InstallmentPlan(TenantScopedModel):
     precedent: a revised plan is a new row, `services.set_installment_plan`
     doesn't need to mutate or delete the previous one."""
 
-    invoice = models.ForeignKey(
-        Invoice, on_delete=models.CASCADE, related_name="installment_plans"
-    )
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="installment_plans")
     num_installments = models.PositiveSmallIntegerField()
     # list of {"due_date": ..., "amount": ...} — DjangoJSONEncoder, same
-    # reasoning as FeeStructure.line_items.
+    # reasoning as FeeStructure.line_items (dates and Decimals both need it).
     schedule = models.JSONField(default=list, blank=True, encoder=DjangoJSONEncoder)
 
     class Meta:
@@ -273,3 +271,76 @@ class Scholarship(TenantScopedModel):
 
     def __str__(self) -> str:
         return f"Scholarship — student {self.student_id} — {self.amount_or_percent}"
+
+
+class Payroll(TenantScopedModel):
+    """Stage 3 (docs/roadmap.md). `staff_id` is a plain cross-app UUID to
+    `staff.StaffProfile` — same convention as every other Layer 1
+    cross-app reference; `finance` needs no live import of `apps.staff`
+    for this (no object-scoping calls for one, unlike the `students` edge
+    `InvoiceViewSet` has).
+    """
+
+    staff_id = models.UUIDField()
+    # First day of the pay-period month (e.g. 2026-01-01 for January
+    # 2026) — docs/database.md's "period" field, read as a single date
+    # rather than a start/end pair for simplicity, same "pick the
+    # simplest concrete reading" precedent as curriculum_844's exam-type
+    # discriminator.
+    period = models.DateField()
+    gross = models.DecimalField(max_digits=12, decimal_places=2)
+    # list of {"description": ..., "amount": ...} — DjangoJSONEncoder,
+    # same reasoning as FeeStructure.line_items.
+    deductions = models.JSONField(default=list, blank=True, encoder=DjangoJSONEncoder)
+    # Computed by services.create_payroll_record as gross minus the sum of
+    # deductions[].amount — never entered redundantly by the caller.
+    # Deliberately unconstrained to be non-negative: deductions can
+    # legitimately exceed gross (e.g. a loan recovery month), and net
+    # should reflect that truthfully rather than being clamped or
+    # rejected.
+    net = models.DecimalField(max_digits=12, decimal_places=2)
+    paid_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ["-period"]
+
+    Meta.constraints = [
+        models.UniqueConstraint(
+            fields=["institution_id", "staff_id", "period"],
+            name="payroll_unique_per_staff_period",
+        ),
+        models.CheckConstraint(condition=models.Q(gross__gt=0), name="payroll_gross_positive"),
+    ]
+
+    def __str__(self) -> str:
+        return f"Payroll — staff {self.staff_id} — {self.period}"
+
+
+class ExpenseRecord(TenantScopedModel):
+    """docs/database.md lists this as one flat row, not a
+    proposal/approval-stage pair — same "don't invent a stage history the
+    docs don't specify" call already made for `Scholarship`.
+    `approved_by_id` is server-injected from `request.user.id` at creation
+    (`services.record_expense`), never client-supplied: only someone
+    holding `finance.expense_record.manage` can write one at all, so their
+    write *is* the approval — same pattern as `Payment.recorded_by_id`.
+    """
+
+    # Free text, not an enum — unlike Payment.method (an explicit
+    # doc-given list), no category list is given, so none is invented.
+    category = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    incurred_at = models.DateField()
+    approved_by_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-incurred_at"]
+
+    Meta.constraints = [
+        models.CheckConstraint(
+            condition=models.Q(amount__gt=0), name="expenserecord_amount_positive"
+        ),
+    ]
+
+    def __str__(self) -> str:
+        return f"Expense — {self.category} — {self.amount}"

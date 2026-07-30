@@ -30,17 +30,25 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 from api.idempotency import replay_or_execute
 from api.viewsets import TenantScopedModelViewSet
 from apps.finance import services
-from apps.finance.filters import InvoiceFilterSet, PaymentFilterSet
+from apps.finance.filters import (
+    ExpenseRecordFilterSet,
+    InvoiceFilterSet,
+    PaymentFilterSet,
+    PayrollFilterSet,
+)
 from apps.finance.models import (
+    ExpenseRecord,
     FeeStructure,
     InstallmentPlan,
     Invoice,
     Payment,
+    Payroll,
     Receipt,
     Scholarship,
 )
 from apps.finance.selectors import get_institution_financial_summary
 from apps.finance.serializers import (
+    ExpenseRecordSerializer,
     FeeStructureSerializer,
     FinancialSummarySerializer,
     GenerateInvoicesResponseSerializer,
@@ -49,6 +57,7 @@ from apps.finance.serializers import (
     InvoiceSerializer,
     MpesaSTKPushRequestSerializer,
     PaymentSerializer,
+    PayrollSerializer,
     ReceiptSerializer,
     ScholarshipSerializer,
 )
@@ -269,6 +278,34 @@ class ScholarshipViewSet(TenantScopedModelViewSet):
     def perform_create(self, serializer):
         serializer.instance = services.grant_scholarship(
             institution=self.request.institution, **serializer.validated_data
+        )
+
+
+class PayrollViewSet(TenantScopedModelViewSet):
+    queryset_model = Payroll
+    serializer_class = PayrollSerializer
+    filterset_class = PayrollFilterSet
+    get_permissions = _view_and_manage("finance.payroll.view", "finance.payroll.manage")
+
+    def perform_create(self, serializer):
+        serializer.instance = services.create_payroll_record(
+            institution=self.request.institution, **serializer.validated_data
+        )
+
+
+class ExpenseRecordViewSet(TenantScopedModelViewSet):
+    queryset_model = ExpenseRecord
+    serializer_class = ExpenseRecordSerializer
+    filterset_class = ExpenseRecordFilterSet
+    get_permissions = _view_and_manage(
+        "finance.expense_record.view", "finance.expense_record.manage"
+    )
+
+    def perform_create(self, serializer):
+        serializer.instance = services.record_expense(
+            institution=self.request.institution,
+            approved_by_id=self.request.user.id,
+            **serializer.validated_data,
         )
 
 

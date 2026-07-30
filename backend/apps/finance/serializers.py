@@ -4,11 +4,13 @@ from rest_framework import serializers
 
 from api.serializers import TenantScopedModelSerializer
 from apps.finance.models import (
+    ExpenseRecord,
     FeeStructure,
     InstallmentPlan,
     Invoice,
     MpesaSTKPushRequest,
     Payment,
+    Payroll,
     Receipt,
     Scholarship,
 )
@@ -169,3 +171,47 @@ class FinancialSummarySerializer(serializers.Serializer):
     total_collected = serializers.DecimalField(max_digits=14, decimal_places=2)
     total_outstanding = serializers.DecimalField(max_digits=14, decimal_places=2)
     by_method = serializers.DictField()
+
+
+class PayrollDeductionItemSerializer(serializers.Serializer):
+    description = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class PayrollSerializer(TenantScopedModelSerializer):
+    deductions = PayrollDeductionItemSerializer(many=True)
+
+    class Meta:
+        model = Payroll
+        fields = [
+            "id",
+            "staff_id",
+            "period",
+            "gross",
+            "deductions",
+            "net",
+            "paid_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "net", "created_at", "updated_at"]
+        extra_kwargs = {
+            "staff_id": {"help_text": "staff.StaffProfile this payroll record belongs to."},
+            "period": {"help_text": "First day of the pay-period month, e.g. 2026-01-01."},
+            "deductions": {"help_text": "List of {description, amount}; net is derived."},
+        }
+
+
+class ExpenseRecordSerializer(TenantScopedModelSerializer):
+    class Meta:
+        model = ExpenseRecord
+        fields = [
+            "id",
+            "category",
+            "amount",
+            "incurred_at",
+            "approved_by_id",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "approved_by_id", "created_at", "updated_at"]

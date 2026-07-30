@@ -21,7 +21,7 @@ from django.dispatch import receiver
 
 from apps.audit.services import log_action
 from apps.core.context import current_institution, current_user
-from apps.finance.models import Invoice, Payment, Scholarship
+from apps.finance.models import ExpenseRecord, Invoice, Payment, Payroll, Scholarship
 from apps.institutions.models import Institution
 
 
@@ -55,3 +55,13 @@ def _log_payment_write(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Scholarship)
 def _log_scholarship_write(sender, instance, created, **kwargs):
     _log("finance.scholarship.create" if created else "finance.scholarship.update", instance)
+
+
+@receiver(post_save, sender=Payroll)
+def _log_payroll_write(sender, instance, created, **kwargs):
+    _log("finance.payroll.create" if created else "finance.payroll.update", instance)
+
+
+@receiver(post_save, sender=ExpenseRecord)
+def _log_expense_record_write(sender, instance, created, **kwargs):
+    _log("finance.expense_record.create" if created else "finance.expense_record.update", instance)

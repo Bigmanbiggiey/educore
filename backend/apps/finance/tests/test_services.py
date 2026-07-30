@@ -5,13 +5,15 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.core.context import bind_institution
-from apps.finance.models import Invoice, MpesaSTKPushRequest, Payment, Scholarship
+from apps.finance.models import ExpenseRecord, Invoice, MpesaSTKPushRequest, Payment, Scholarship
 from apps.finance.services import (
     create_fee_structure,
+    create_payroll_record,
     generate_invoices_for_class,
     grant_scholarship,
     handle_mpesa_callback,
     initiate_mpesa_stk_push,
+    record_expense,
     record_payment,
     set_installment_plan,
 )
@@ -419,3 +421,62 @@ class HandleMpesaCallbackTests(FinanceServiceTestCase):
         )
 
         self.assertEqual(result.status, MpesaSTKPushRequest.Status.FAILED)
+
+
+class CreatePayrollRecordTests(FinanceServiceTestCase):
+    def test_computes_net_as_gross_minus_deductions(self):
+        record = create_payroll_record(
+            institution=self.institution,
+            staff_id=uuid.uuid4(),
+            period="2026-01-01",
+            gross=Decimal("50000.00"),
+            deductions=[
+                {"description": "PAYE", "amount": "8000.00"},
+                {"description": "NHIF", "amount": "1700.00"},
+            ],
+            paid_at=timezone.now(),
+        )
+
+        self.assertEqual(record.net, Decimal("40300.00"))
+
+    def test_net_may_go_negative_when_deductions_exceed_gross(self):
+        record = create_payroll_record(
+            institution=self.institution,
+            staff_id=uuid.uuid4(),
+            period="2026-01-01",
+            gross=Decimal("10000.00"),
+            deductions=[{"description": "Loan recovery", "amount": "12000.00"}],
+            paid_at=timezone.now(),
+        )
+
+        self.assertEqual(record.net, Decimal("-2000.00"))
+
+    def test_no_deductions_means_net_equals_gross(self):
+        record = create_payroll_record(
+            institution=self.institution,
+            staff_id=uuid.uuid4(),
+            period="2026-01-01",
+            gross=Decimal("50000.00"),
+            deductions=[],
+            paid_at=timezone.now(),
+        )
+
+        self.assertEqual(record.net, Decimal("50000.00"))
+
+
+class RecordExpenseTests(FinanceServiceTestCase):
+    def test_creates_an_expense_record_with_the_given_approver(self):
+        approver_id = uuid.uuid4()
+
+        expense = record_expense(
+            institution=self.institution,
+            category="Utilities",
+            amount=Decimal("2500.00"),
+            incurred_at=timezone.now().date(),
+            approved_by_id=approver_id,
+        )
+
+        self.assertEqual(expense.category, "Utilities")
+        self.assertEqual(expense.approved_by_id, approver_id)
+        with bind_institution(self.institution):
+            self.assertEqual(ExpenseRecord.objects.count(), 1)

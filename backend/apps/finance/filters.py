@@ -7,7 +7,7 @@ generation, which runs with no tenant bound.
 
 import django_filters
 
-from apps.finance.models import Invoice, Payment
+from apps.finance.models import ExpenseRecord, Invoice, Payment, Payroll
 
 
 class InvoiceFilterSet(django_filters.FilterSet):
@@ -27,3 +27,21 @@ class PaymentFilterSet(django_filters.FilterSet):
     class Meta:
         model = Payment
         fields = ["invoice", "method"]
+
+
+class PayrollFilterSet(django_filters.FilterSet):
+    staff = django_filters.UUIDFilter(field_name="staff_id")
+    period = django_filters.DateFilter(field_name="period")
+
+    class Meta:
+        model = Payroll
+        fields = ["staff", "period"]
+
+
+class ExpenseRecordFilterSet(django_filters.FilterSet):
+    category = django_filters.CharFilter(field_name="category")
+    incurred_at = django_filters.DateFilter(field_name="incurred_at")
+
+    class Meta:
+        model = ExpenseRecord
+        fields = ["category", "incurred_at"]

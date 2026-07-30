@@ -365,3 +365,88 @@ class InitiateMpesaPaymentActionTests(FinanceAPITestCase):
 
         self.assertEqual([r.status_code for r in responses[:5]], [202] * 5)
         self.assertEqual(responses[5].status_code, 429)
+
+
+class PayrollViewSetTests(FinanceAPITestCase):
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("v1:finance:payroll-record-list")
+
+    def _payload(self, staff_id=None, period="2026-01-01"):
+        return {
+            "staff_id": str(staff_id or uuid.uuid4()),
+            "period": period,
+            "gross": "50000.00",
+            "deductions": [{"description": "PAYE", "amount": "8000.00"}],
+            "paid_at": "2026-01-31T10:00:00Z",
+        }
+
+    def test_create_without_permission_is_denied(self):
+        response = self.client.post(self.url, self._payload(), format="json", HTTP_HOST=HOSTNAME)
+        self.assertEqual(response.status_code, 403)
+
+    def test_create_computes_net(self):
+        self._grant("finance.payroll.manage")
+
+        response = self.client.post(self.url, self._payload(), format="json", HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["net"], "42000.00")
+
+    def test_read_requires_view_permission(self):
+        self._grant("finance.payroll.manage")
+        self.client.post(self.url, self._payload(), format="json", HTTP_HOST=HOSTNAME)
+
+        # The manage grant above doesn't include view — reads are gated
+        # separately (docs/permissions.md §5's view/manage split).
+        response = self.client.get(self.url, HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_filters_by_staff(self):
+        self._grant("finance.payroll.manage")
+        self._grant("finance.payroll.view")
+        staff_id = uuid.uuid4()
+        self.client.post(
+            self.url, self._payload(staff_id=staff_id), format="json", HTTP_HOST=HOSTNAME
+        )
+        self.client.post(self.url, self._payload(), format="json", HTTP_HOST=HOSTNAME)
+
+        response = self.client.get(self.url, {"staff": str(staff_id)}, HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["staff_id"], str(staff_id))
+
+
+class ExpenseRecordViewSetTests(FinanceAPITestCase):
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("v1:finance:expense-record-list")
+
+    def _payload(self, category="Utilities"):
+        return {"category": category, "amount": "2500.00", "incurred_at": "2026-01-05"}
+
+    def test_create_without_permission_is_denied(self):
+        response = self.client.post(self.url, self._payload(), format="json", HTTP_HOST=HOSTNAME)
+        self.assertEqual(response.status_code, 403)
+
+    def test_create_injects_the_approver_from_the_authenticated_user(self):
+        self._grant("finance.expense_record.manage")
+
+        response = self.client.post(self.url, self._payload(), format="json", HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["approved_by_id"], str(self.user.id))
+
+    def test_filters_by_category(self):
+        self._grant("finance.expense_record.manage")
+        self._grant("finance.expense_record.view")
+        self.client.post(self.url, self._payload("Utilities"), format="json", HTTP_HOST=HOSTNAME)
+        self.client.post(self.url, self._payload("Transport"), format="json", HTTP_HOST=HOSTNAME)
+
+        response = self.client.get(self.url, {"category": "Transport"}, HTTP_HOST=HOSTNAME)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["category"], "Transport")
