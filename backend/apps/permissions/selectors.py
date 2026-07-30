@@ -47,6 +47,19 @@ def get_user_roles(user: User, institution: Institution):
     )
 
 
+def get_members_with_role(institution: Institution, role_name: str):
+    """Reverse direction of `get_user_roles` — every actively-membered user
+    holding `role_name` at this institution. Uncached (same reasoning as
+    `get_user_roles`); the one real caller so far is
+    `communication.services.publish_announcement` resolving a role-targeted
+    Announcement's audience into actual recipients."""
+    return User.objects.filter(
+        institution_memberships__institution=institution,
+        institution_memberships__status=InstitutionMembership.Status.ACTIVE,
+        institution_memberships__roles__name=role_name,
+    ).distinct()
+
+
 def get_membership_access(user: User, institution: Institution) -> MembershipAccess:
     cache_key = cache_key_for(user.id, institution.id)
     cached = cache.get(cache_key)

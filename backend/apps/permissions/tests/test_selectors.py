@@ -11,6 +11,7 @@ from apps.permissions.models import (
     RolePermission,
 )
 from apps.permissions.selectors import (
+    get_members_with_role,
     get_membership_access,
     get_user_roles,
     is_institution_member,
@@ -65,6 +66,20 @@ class SelectorTests(TestCase):
 
         self.assertEqual(access.role_names, frozenset())
         self.assertEqual(access.permission_codes, frozenset())
+
+    def test_get_members_with_role_returns_users_holding_that_role(self):
+        membership = self._make_membership()
+        MembershipRole.objects.create(membership=membership, role=self.role)
+        other_user = User.objects.create_user(email="other@stmary.ac.ke", password="x" * 12)
+        InstitutionMembership.objects.create(user=other_user, institution=self.institution)
+
+        self.assertEqual(list(get_members_with_role(self.institution, "Teacher")), [self.user])
+
+    def test_get_members_with_role_excludes_suspended_memberships(self):
+        membership = self._make_membership(status=InstitutionMembership.Status.SUSPENDED)
+        MembershipRole.objects.create(membership=membership, role=self.role)
+
+        self.assertEqual(list(get_members_with_role(self.institution, "Teacher")), [])
 
     def test_get_membership_access_is_cached(self):
         membership = self._make_membership()

@@ -8,7 +8,7 @@ import uuid
 
 from apps.core.context import bind_institution
 from apps.institutions.models import Institution
-from apps.students.models import Enrollment, Student
+from apps.students.models import Enrollment, GuardianRelationship, Student
 
 
 def get_active_roster(class_grade_id: uuid.UUID):
@@ -54,3 +54,21 @@ def get_student_by_user_id(user_id: uuid.UUID) -> Student | None:
 
 def get_student_by_id(student_id: uuid.UUID) -> Student | None:
     return Student.objects.filter(id=student_id).first()
+
+
+def get_guardians_for_class(institution: Institution, class_grade_id: uuid.UUID) -> list[uuid.UUID]:
+    """Guardian `user_id`s for every actively-enrolled student in this class
+    grade — `communication.services.publish_announcement` needs this to
+    resolve a class-targeted Announcement's audience into actual
+    recipients. Explicit-institution-argument, self-binding (same shape as
+    `get_active_enrollments`): the Celery Beat task that publishes a
+    scheduled Announcement has nothing ambiently bound."""
+    with bind_institution(institution):
+        return list(
+            GuardianRelationship.objects.filter(
+                student__enrollments__class_grade_id=class_grade_id,
+                student__enrollments__status=Enrollment.Status.ACTIVE,
+            )
+            .values_list("guardian_user_id", flat=True)
+            .distinct()
+        )

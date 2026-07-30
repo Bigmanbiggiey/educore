@@ -20,7 +20,7 @@ boundaries and minimizing technical debt.
 | Phase 2 – Core Academic Engine | ✅ Complete |
 | Phase 3 – Curriculum Plugin Framework | ✅ Complete (framework + all five plugins — CBC, 8-4-4, British, TVET, University; Plugin SDK testing/version-compatibility tooling deliberately deferred) |
 | Phase 4 – Finance | ✅ Complete (Stage 1 core billing/manual payments, Stage 2 live M-Pesa STK Push/callback, Stage 3 Payroll/ExpenseRecord) |
-| Phase 5 – Communication | ⏳ Planned |
+| Phase 5 – Communication | 🔶 In Progress (Stage 1 — communication app core, console backend — complete; real SMS (Stage 2)/Email (Stage 3) backends remain; Push deliberately deferred, no provider named and no mobile client yet) |
 | Phase 6 – Operations | ⏳ Planned |
 | Phase 7 – Campus Services | ⏳ Planned |
 | Phase 8 – Analytics & Reporting | ⏳ Planned |

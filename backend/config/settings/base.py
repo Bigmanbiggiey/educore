@@ -70,6 +70,8 @@ LOCAL_APPS: list[str] = [
     "apps.curriculum_university",
     # Phase 4 Stage 1 — core billing/manual payments (docs/roadmap.md).
     "apps.finance",
+    # Phase 5 Stage 1 — announcements, circulars, messaging (docs/roadmap.md).
+    "apps.communication",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.
@@ -196,6 +198,17 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+
+# Phase 5 Stage 1 — first real use of Beat's periodic-task schedule; the
+# celery-beat service has always been provisioned in the docker-compose
+# stack (docs/deployment.md §1) but nothing had registered a task against
+# it until apps.communication.tasks.publish_due_announcements.
+CELERY_BEAT_SCHEDULE = {
+    "publish-due-announcements": {
+        "task": "apps.communication.tasks.publish_due_announcements",
+        "schedule": 300.0,  # every 5 minutes
+    },
+}
 
 # --------------------------------------------------------------------------
 # Django REST Framework

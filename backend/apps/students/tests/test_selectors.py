@@ -10,6 +10,7 @@ from apps.students.selectors import (
     get_active_enrollments,
     get_active_roster,
     get_guardian_children,
+    get_guardians_for_class,
     get_student_by_user_id,
 )
 
@@ -122,6 +123,47 @@ class GetGuardianChildrenTests(StudentsSelectorTestCase):
 
     def test_returns_empty_for_a_guardian_with_no_children(self):
         self.assertEqual(list(get_guardian_children(uuid.uuid4())), [])
+
+
+class GetGuardiansForClassTests(StudentsSelectorTestCase):
+    def test_returns_guardians_of_actively_enrolled_students_in_the_class(self):
+        class_grade_id = uuid.uuid4()
+        guardian_id = uuid.uuid4()
+        active_student = self._student(admission_number="ADM-001")
+        Enrollment.objects.create(
+            institution_id=self.institution.id,
+            student=active_student,
+            class_grade_id=class_grade_id,
+            term_id=uuid.uuid4(),
+            status=Enrollment.Status.ACTIVE,
+        )
+        GuardianRelationship.objects.create(
+            institution_id=self.institution.id,
+            student=active_student,
+            guardian_user_id=guardian_id,
+            relationship_type=GuardianRelationship.RelationshipType.PARENT,
+        )
+        withdrawn_student = self._student(admission_number="ADM-002")
+        Enrollment.objects.create(
+            institution_id=self.institution.id,
+            student=withdrawn_student,
+            class_grade_id=class_grade_id,
+            term_id=uuid.uuid4(),
+            status=Enrollment.Status.WITHDRAWN,
+        )
+        GuardianRelationship.objects.create(
+            institution_id=self.institution.id,
+            student=withdrawn_student,
+            guardian_user_id=uuid.uuid4(),
+            relationship_type=GuardianRelationship.RelationshipType.PARENT,
+        )
+
+        guardians = get_guardians_for_class(self.institution, class_grade_id)
+
+        self.assertEqual(guardians, [guardian_id])
+
+    def test_returns_empty_for_a_class_with_no_active_enrollments(self):
+        self.assertEqual(get_guardians_for_class(self.institution, uuid.uuid4()), [])
 
 
 class GetActiveEnrollmentTests(StudentsSelectorTestCase):
