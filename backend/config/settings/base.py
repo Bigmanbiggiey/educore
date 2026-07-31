@@ -284,15 +284,32 @@ CORS_ALLOW_CREDENTIALS = True
 # Notifications — pluggable per-channel backend (apps.notifications_core)
 # --------------------------------------------------------------------------
 
-# Real provider backends (Africa's Talking for SMS, SES/SMTP for email, a
-# push provider) land in Phase 5 (docs/roadmap.md) once `communication`
-# exists and is actually driving traffic — the console backend is the
-# deliberate default until then, not a placeholder left in by accident.
+# Real provider backends land in Phase 5 (docs/roadmap.md) once
+# `communication` exists and is actually driving traffic — the console
+# backend remains each channel's default until a deployment explicitly
+# opts in via .env, same "swap without touching call sites" shape as
+# MPESA_GATEWAY_BACKEND below. Push has no provider yet (deliberately
+# deferred, docs/checklist.md's Phase 5 entry).
 NOTIFICATION_CHANNEL_BACKENDS = {
-    "sms": "apps.notifications_core.backends.ConsoleChannelBackend",
+    "sms": env(
+        "SMS_CHANNEL_BACKEND", default="apps.notifications_core.backends.ConsoleChannelBackend"
+    ),
     "email": "apps.notifications_core.backends.ConsoleChannelBackend",
     "push": "apps.notifications_core.backends.ConsoleChannelBackend",
 }
+
+# --------------------------------------------------------------------------
+# Africa's Talking (SMS) — Phase 5 Stage 2 (docs/roadmap.md)
+# --------------------------------------------------------------------------
+
+# "sandbox" or "production" — selects Africa's Talking's base URL.
+AFRICASTALKING_ENV = env("AFRICASTALKING_ENV", default="sandbox")
+# "sandbox" is Africa's Talking's own fixed sandbox username, not a secret.
+AFRICASTALKING_USERNAME = env("AFRICASTALKING_USERNAME", default="sandbox")
+AFRICASTALKING_API_KEY = env("AFRICASTALKING_API_KEY", default="")
+# Optional — omitted from the API request entirely when blank, letting
+# Africa's Talking use the account's default sender.
+AFRICASTALKING_SENDER_ID = env("AFRICASTALKING_SENDER_ID", default="")
 
 # --------------------------------------------------------------------------
 # M-Pesa (Safaricom Daraja) — Phase 4 Stage 2 (docs/roadmap.md)
