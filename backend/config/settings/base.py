@@ -294,7 +294,9 @@ NOTIFICATION_CHANNEL_BACKENDS = {
     "sms": env(
         "SMS_CHANNEL_BACKEND", default="apps.notifications_core.backends.ConsoleChannelBackend"
     ),
-    "email": "apps.notifications_core.backends.ConsoleChannelBackend",
+    "email": env(
+        "EMAIL_CHANNEL_BACKEND", default="apps.notifications_core.backends.ConsoleChannelBackend"
+    ),
     "push": "apps.notifications_core.backends.ConsoleChannelBackend",
 }
 
@@ -310,6 +312,25 @@ AFRICASTALKING_API_KEY = env("AFRICASTALKING_API_KEY", default="")
 # Optional — omitted from the API request entirely when blank, letting
 # Africa's Talking use the account's default sender.
 AFRICASTALKING_SENDER_ID = env("AFRICASTALKING_SENDER_ID", default="")
+
+# --------------------------------------------------------------------------
+# Email (SMTP/SES) — Phase 5 Stage 3 (docs/roadmap.md). Only exercised at
+# all once NOTIFICATION_CHANNEL_BACKENDS["email"] is switched on above —
+# in dev/test that stays on the console backend by default, so this SMTP
+# config is inert (never connected to) unless a deployment opts in to both
+# layers explicitly. SES is consumed via its own SMTP endpoint here, not a
+# separate SDK — see DjangoEmailChannelBackend's docstring.
+# --------------------------------------------------------------------------
+
+EMAIL_BACKEND = env(
+    "DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
+)
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@educore.africa")
 
 # --------------------------------------------------------------------------
 # M-Pesa (Safaricom Daraja) — Phase 4 Stage 2 (docs/roadmap.md)

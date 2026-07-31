@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 
 import requests
 from django.conf import settings
+from django.core.mail import send_mail
 from django.utils.module_loading import import_string
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,33 @@ class AfricasTalkingSMSBackend(NotificationChannelBackend):
         if response.status_code != 201 or recipient_status != "Success":
             raise NotificationDeliveryError(f"Africa's Talking rejected the message: {payload}")
         return payload
+
+
+class DjangoEmailChannelBackend(NotificationChannelBackend):
+    """Real email delivery via Django's own email framework
+    (`EMAIL_BACKEND`/`EMAIL_HOST`/etc. in `config/settings/base.py`) — SMTP
+    by default, which is also how SES's SMTP interface is consumed
+    (docs/modules.md names "SMTP/SES" as one option, not two integrations:
+    SES's SMTP endpoint is just another SMTP server from Django's
+    perspective, no SES-specific SDK code needed).
+    """
+
+    def send(self, *, recipient_address: str, subject: str, body: str) -> dict:
+        try:
+            sent_count = send_mail(
+                subject=subject,
+                message=body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient_address],
+                fail_silently=False,
+            )
+        except Exception as exc:
+            raise NotificationDeliveryError(f"Email delivery failed: {exc}") from exc
+        if sent_count != 1:
+            raise NotificationDeliveryError(
+                f"Email backend reported {sent_count} messages sent, expected 1"
+            )
+        return {"backend": "email", "delivered_to": recipient_address}
 
 
 def get_backend(channel: str) -> NotificationChannelBackend:

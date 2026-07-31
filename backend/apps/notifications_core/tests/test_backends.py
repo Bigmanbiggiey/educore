@@ -1,11 +1,13 @@
 from unittest.mock import Mock, patch
 
 import requests
+from django.core import mail
 from django.test import TestCase, override_settings
 
 from apps.notifications_core.backends import (
     AfricasTalkingSMSBackend,
     ConsoleChannelBackend,
+    DjangoEmailChannelBackend,
     NotificationDeliveryError,
     get_backend,
 )
@@ -109,6 +111,42 @@ class AfricasTalkingSMSBackendTests(TestCase):
         with self.assertRaises(NotificationDeliveryError):
             AfricasTalkingSMSBackend().send(
                 recipient_address="+254700000000", subject="", body="Pay up"
+            )
+
+
+class DjangoEmailChannelBackendTests(TestCase):
+    def test_sends_a_real_email_via_djangos_mail_framework(self):
+        # pytest-django/Django's test runner automatically swaps
+        # EMAIL_BACKEND for the in-memory `locmem` backend for the
+        # duration of tests — no mocking needed, `mail.outbox` is the
+        # real, idiomatic way to assert on this.
+        response = DjangoEmailChannelBackend().send(
+            recipient_address="parent@example.com", subject="Fee Reminder", body="Fees are due."
+        )
+
+        self.assertEqual(response, {"backend": "email", "delivered_to": "parent@example.com"})
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ["parent@example.com"])
+        self.assertEqual(sent.subject, "Fee Reminder")
+        self.assertEqual(sent.body, "Fees are due.")
+
+    @patch("apps.notifications_core.backends.send_mail")
+    def test_raises_on_delivery_failure(self, mock_send_mail):
+        mock_send_mail.side_effect = Exception("SMTP connection refused")
+
+        with self.assertRaises(NotificationDeliveryError):
+            DjangoEmailChannelBackend().send(
+                recipient_address="parent@example.com", subject="Fee Reminder", body="Fees are due."
+            )
+
+    @patch("apps.notifications_core.backends.send_mail")
+    def test_raises_when_zero_messages_were_sent(self, mock_send_mail):
+        mock_send_mail.return_value = 0
+
+        with self.assertRaises(NotificationDeliveryError):
+            DjangoEmailChannelBackend().send(
+                recipient_address="parent@example.com", subject="Fee Reminder", body="Fees are due."
             )
 
 
