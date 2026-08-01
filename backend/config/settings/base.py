@@ -72,6 +72,9 @@ LOCAL_APPS: list[str] = [
     "apps.finance",
     # Phase 5 Stage 1 — announcements, circulars, messaging (docs/roadmap.md).
     "apps.communication",
+    # Phase 6 — Library, Inventory, Clinic, Documents (docs/checklist.md's
+    # fixed build order).
+    "apps.library",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.
@@ -275,6 +278,14 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Kenya-first, globally-extensible Education ERP API.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # apps.library.models.BorrowerType is deliberately one shared TextChoices
+    # used by both Loan.borrower_type and Reservation.borrower_type (the same
+    # "Student|Staff" concept, not two independent enums) — without this,
+    # drf-spectacular derives a differently-scoped component name per usage
+    # site and warns about the resulting name collision on schema generation.
+    "ENUM_NAME_OVERRIDES": {
+        "BorrowerTypeEnum": "apps.library.models.BorrowerType.choices",
+    },
 }
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
