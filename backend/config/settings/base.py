@@ -78,6 +78,9 @@ LOCAL_APPS: list[str] = [
     "apps.inventory",
     "apps.clinic",
     "apps.documents",
+    # Phase 7 — Campus Services (docs/checklist.md).
+    "apps.transport",
+    "apps.hostel",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.

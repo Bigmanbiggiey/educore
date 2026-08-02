@@ -22,7 +22,7 @@ boundaries and minimizing technical debt.
 | Phase 4 – Finance | ✅ Complete (Stage 1 core billing/manual payments, Stage 2 live M-Pesa STK Push/callback, Stage 3 Payroll/ExpenseRecord) |
 | Phase 5 – Communication | ✅ Complete (Stage 1 communication app core, Stage 2 real SMS via Africa's Talking, Stage 3 real Email via SMTP/SES; Push deliberately deferred, no provider named and no mobile client yet) |
 | Phase 6 – Operations | ✅ Complete (library, inventory, clinic, documents) |
-| Phase 7 – Campus Services | ⏳ Planned |
+| Phase 7 – Campus Services | ✅ Complete (transport, hostel) |
 | Phase 8 – Analytics & Reporting | ⏳ Planned |
 | Phase 9 – AI Platform | ⏳ Planned |
 | Phase 10 – Enterprise Platform | ⏳ Planned |
