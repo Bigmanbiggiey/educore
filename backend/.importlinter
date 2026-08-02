@@ -38,7 +38,7 @@ ignore_imports =
 name = Layer 1 apps depend on Layer 0 (never the reverse); siblings are independent of each other except the sanctioned parents -> students edge (docs/modules.md: "reads guardian links from students, doesn't duplicate them")
 type = layers
 layers =
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -66,6 +66,9 @@ modules =
     apps.timetable
     apps.attendance
     apps.library
+    apps.inventory
+    apps.clinic
+    apps.documents
 
 [importlinter:contract:academics-dependencies]
 name = academics depends on core/institutions/students/classes_streams/staff (docs/modules.md's explicit dependency list for academics), never the reverse
@@ -83,7 +86,7 @@ type = layers
 layers =
     apps.curriculum_cbc
     apps.academics
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -103,7 +106,7 @@ type = layers
 layers =
     apps.curriculum_844
     apps.academics
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -120,7 +123,7 @@ type = layers
 layers =
     apps.curriculum_british
     apps.academics
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -137,7 +140,7 @@ type = layers
 layers =
     apps.curriculum_tvet
     apps.academics
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -154,7 +157,7 @@ type = layers
 layers =
     apps.curriculum_university
     apps.academics
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -170,7 +173,7 @@ name = finance depends on core/institutions/students (read-only, for Parent/Stud
 type = layers
 layers =
     apps.finance
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -193,7 +196,7 @@ name = communication depends on core/institutions/accounts/permissions/students 
 type = layers
 layers =
     apps.communication
-    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents
     apps.permissions | apps.audit | apps.notifications_core
     apps.institutions | apps.accounts
     apps.core
@@ -225,6 +228,9 @@ source_modules =
     apps.finance
     apps.communication
     apps.library
+    apps.inventory
+    apps.clinic
+    apps.documents
 forbidden_modules =
     apps.curriculum_cbc
     apps.curriculum_844

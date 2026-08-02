@@ -75,6 +75,9 @@ LOCAL_APPS: list[str] = [
     # Phase 6 — Library, Inventory, Clinic, Documents (docs/checklist.md's
     # fixed build order).
     "apps.library",
+    "apps.inventory",
+    "apps.clinic",
+    "apps.documents",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.
