@@ -19,11 +19,11 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
           ref={ref}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${inputId}-error` : undefined}
-          className="rounded-[10px] border border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary"
+          className="rounded-input border border-border bg-surface px-3 py-2 text-text focus:outline-none focus:ring-2 focus:ring-primary"
           {...props}
         />
         {error && (
-          <p id={`${inputId}-error`} role="alert" className="text-sm text-red-600">
+          <p id={`${inputId}-error`} role="alert" className="text-sm text-danger">
             {error}
           </p>
         )}

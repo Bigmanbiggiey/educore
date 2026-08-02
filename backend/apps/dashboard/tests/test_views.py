@@ -128,7 +128,7 @@ class ParentDashboardViewTests(DashboardAPITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["children"]), 1)
-        self.assertEqual(response.data["children"][0]["student_id"], student.id)
+        self.assertEqual(response.data["children"][0]["student_id"], str(student.id))
 
 
 class StudentDashboardViewTests(DashboardAPITestCase):

@@ -1,5 +1,5 @@
-import { PortalDashboardPlaceholder } from "@/shared/components/PortalDashboardPlaceholder";
+import { PrincipalDashboard } from "@/features/dashboard";
 
 export function DashboardPage() {
-  return <PortalDashboardPlaceholder portalName="Principal" />;
+  return <PrincipalDashboard />;
 }

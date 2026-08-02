@@ -1,20 +1,23 @@
 import type { ButtonHTMLAttributes } from "react";
 
+import { cn } from "@/shared/utils/cn";
+
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** Only the two variants an actual call site needs today
-   * (docs/ui-guidelines.md lists five; outline/ghost/danger land when a
-   * real consumer needs them, not speculatively). */
-  variant?: "primary" | "secondary";
+  /** The full five-variant set docs/ui-guidelines.md fixes. */
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "danger";
 }
 
 const BASE =
-  "rounded-xl px-4 py-2 font-medium transition disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-button px-4 py-2 font-medium transition disabled:cursor-not-allowed disabled:opacity-60";
 
 const VARIANTS: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary: "bg-primary text-white hover:opacity-90",
   secondary: "border border-border bg-surface text-text hover:bg-surface-muted",
+  outline: "border border-primary text-primary hover:bg-primary/10",
+  ghost: "text-text hover:bg-surface-muted",
+  danger: "bg-danger text-white hover:opacity-90",
 };
 
-export function Button({ variant = "primary", className = "", ...props }: ButtonProps) {
-  return <button className={`${BASE} ${VARIANTS[variant]} ${className}`} {...props} />;
+export function Button({ variant = "primary", className, ...props }: ButtonProps) {
+  return <button className={cn(BASE, VARIANTS[variant], className)} {...props} />;
 }
