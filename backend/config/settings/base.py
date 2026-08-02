@@ -81,6 +81,10 @@ LOCAL_APPS: list[str] = [
     # Phase 7 — Campus Services (docs/checklist.md).
     "apps.transport",
     "apps.hostel",
+    # Phase 8 — Analytics & Reporting (docs/checklist.md).
+    "apps.analytics",
+    "apps.reports",
+    "apps.dashboard",
 ]
 
 # Hostnames exempt from tenant resolution (docs/multitenancy.md §2) — e.g.
@@ -216,6 +220,10 @@ CELERY_BEAT_SCHEDULE = {
     "publish-due-announcements": {
         "task": "apps.communication.tasks.publish_due_announcements",
         "schedule": 300.0,  # every 5 minutes
+    },
+    "nightly-analytics-rollup": {
+        "task": "apps.analytics.tasks.nightly_analytics_rollup",
+        "schedule": 86400.0,  # once a day
     },
 }
 

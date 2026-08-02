@@ -35,6 +35,9 @@ urlpatterns = [
     path("", include("apps.documents.urls")),
     path("", include("apps.transport.urls")),
     path("", include("apps.hostel.urls")),
+    path("", include("apps.analytics.urls")),
+    path("", include("apps.reports.urls")),
+    path("", include("apps.dashboard.urls")),
     # Outside TenantMiddleware's normal tenant resolution (Safaricom calls
     # back on the fixed public API host, not a per-institution subdomain —
     # see apps/finance/webhooks.py's module docstring) — institution_id and

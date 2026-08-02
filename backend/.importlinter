@@ -215,6 +215,47 @@ ignore_imports =
     # real data, not just that it doesn't error.
     apps.communication.tests.test_services -> apps.students.models
 
+[importlinter:contract:analytics-dependencies]
+name = analytics depends on core/institutions/students/classes_streams/attendance/finance/curriculum_844 (the one sanctioned Layer 3 reads Layer 2 case - docs/modules.md: "reads via selectors across Layer 1/2 apps"), never the reverse
+type = layers
+layers =
+    apps.analytics
+    apps.curriculum_844 | apps.finance
+    apps.classes_streams | apps.students | apps.staff | apps.parents | apps.timetable | apps.attendance | apps.admissions | apps.library | apps.inventory | apps.clinic | apps.documents | apps.transport | apps.hostel
+    apps.permissions | apps.audit | apps.notifications_core
+    apps.institutions | apps.accounts
+    apps.core
+# Same sanctioned Layer 1 sibling exceptions as layer-1-depends-on-layer-0-only
+# — this contract's own tier list re-checks Layer 1 sibling independence too.
+ignore_imports =
+    apps.parents.selectors -> apps.students.selectors
+    apps.parents.tests.test_selectors -> apps.students.models
+    apps.admissions.services -> apps.students.models
+    apps.admissions.services -> apps.students.services
+    apps.admissions.tests.test_services -> apps.students.models
+
+[importlinter:contract:reports-dependencies]
+name = reports depends on core/institutions/academics/students/finance/documents (docs/modules.md's explicit dependency list for reports), never the reverse
+type = layers
+layers =
+    apps.reports
+    apps.academics | apps.finance | apps.documents
+    apps.students
+    apps.institutions | apps.accounts
+    apps.core
+
+[importlinter:contract:dashboard-dependencies]
+name = dashboard depends on core/institutions/accounts/permissions/students/staff/timetable/attendance/finance/classes_streams/analytics/documents (docs/modules.md: "facade over selectors from many apps"), never the reverse
+type = layers
+layers =
+    apps.dashboard
+    apps.analytics
+    apps.finance
+    apps.attendance | apps.documents | apps.staff | apps.students | apps.timetable | apps.classes_streams
+    apps.permissions | apps.audit | apps.notifications_core
+    apps.institutions | apps.accounts
+    apps.core
+
 [importlinter:contract:no-layer1-imports-curriculum-plugins]
 name = No Layer 1 app (including academics itself) imports a curriculum_* app directly - only reached through academics.selectors.get_curriculum_engine()
 type = forbidden

@@ -22,6 +22,11 @@ this itself, since it runs before DRF authentication resolves `request.user`
 (docs/authentication.md §6). This is what makes `apps.finance.signals`'
 audit-signal wiring able to attribute a write to its actor without every
 call site threading a user through explicitly.
+
+`TenantScopedReadOnlyModelViewSet` (Phase 8, `analytics`) shares everything
+above except `perform_create` — for machine-written data (Celery-computed
+rollups) that has no client-facing write path at all, not even the
+generic tenant-scoped one.
 """
 
 from rest_framework import viewsets
@@ -29,7 +34,7 @@ from rest_framework import viewsets
 from apps.core.context import current_user
 
 
-class TenantScopedModelViewSet(viewsets.ModelViewSet):
+class TenantScopedViewSetMixin:
     queryset_model = None
 
     def initial(self, request, *args, **kwargs):
@@ -65,5 +70,11 @@ class TenantScopedModelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return self.get_base_queryset()
 
+
+class TenantScopedModelViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(institution_id=self.request.institution.id)
+
+
+class TenantScopedReadOnlyModelViewSet(TenantScopedViewSetMixin, viewsets.ReadOnlyModelViewSet):
+    pass

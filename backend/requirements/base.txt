@@ -12,3 +12,10 @@ celery>=5.4,<5.5
 redis>=5.0,<6.0
 gunicorn>=23.0,<24.0
 requests>=2.32,<3.0
+weasyprint>=62.3,<63.0
+# pydyf 0.11+ refactored its Stream class hierarchy in a way weasyprint
+# 62.x's PDF backend doesn't support (AttributeError: 'super' object has
+# no attribute 'transform', verified live against pydyf 0.12.1) — pinned
+# to the last version actually compatible with this weasyprint range.
+pydyf<0.11,>=0.8
+openpyxl>=3.1,<4.0
