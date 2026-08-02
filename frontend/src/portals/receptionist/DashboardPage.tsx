@@ -1,5 +1,5 @@
-import { PortalDashboardPlaceholder } from "@/shared/components/PortalDashboardPlaceholder";
+import { AdmissionsScreen } from "@/features/admissions";
 
 export function DashboardPage() {
-  return <PortalDashboardPlaceholder portalName="Receptionist" />;
+  return <AdmissionsScreen />;
 }

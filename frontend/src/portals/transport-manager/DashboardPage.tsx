@@ -1,5 +1,5 @@
-import { PortalDashboardPlaceholder } from "@/shared/components/PortalDashboardPlaceholder";
+import { TransportScreen } from "@/features/transport";
 
 export function DashboardPage() {
-  return <PortalDashboardPlaceholder portalName="Transport Manager" />;
+  return <TransportScreen />;
 }

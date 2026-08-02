@@ -1,5 +1,5 @@
-import { PortalDashboardPlaceholder } from "@/shared/components/PortalDashboardPlaceholder";
+import { FinanceScreen } from "@/features/finance";
 
 export function DashboardPage() {
-  return <PortalDashboardPlaceholder portalName="Finance Officer" />;
+  return <FinanceScreen />;
 }

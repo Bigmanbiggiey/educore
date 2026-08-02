@@ -1,5 +1,5 @@
-import { PortalDashboardPlaceholder } from "@/shared/components/PortalDashboardPlaceholder";
+import { ClinicScreen } from "@/features/clinic";
 
 export function DashboardPage() {
-  return <PortalDashboardPlaceholder portalName="Nurse" />;
+  return <ClinicScreen />;
 }

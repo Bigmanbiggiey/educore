@@ -1,5 +1,5 @@
-import { PortalDashboardPlaceholder } from "@/shared/components/PortalDashboardPlaceholder";
+import { HostelScreen } from "@/features/hostel";
 
 export function DashboardPage() {
-  return <PortalDashboardPlaceholder portalName="Hostel Warden" />;
+  return <HostelScreen />;
 }

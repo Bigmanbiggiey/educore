@@ -1,5 +1,5 @@
-import { PortalDashboardPlaceholder } from "@/shared/components/PortalDashboardPlaceholder";
+import { LibraryScreen } from "@/features/library";
 
 export function DashboardPage() {
-  return <PortalDashboardPlaceholder portalName="Librarian" />;
+  return <LibraryScreen />;
 }
