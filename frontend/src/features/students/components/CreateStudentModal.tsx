@@ -5,7 +5,7 @@ import { Modal } from "@/shared/components/Modal";
 
 import { useCreateStudent } from "../api/useCreateStudent";
 import type { CreateStudentFormValues } from "../forms/create-student.schema";
-import { CreateStudentForm } from "./CreateStudentForm";
+import { StudentForm } from "./StudentForm";
 
 interface CreateStudentModalProps {
   open: boolean;
@@ -28,7 +28,7 @@ export function CreateStudentModal({ open, onClose }: CreateStudentModalProps) {
 
   return (
     <Modal open={open} onClose={onClose} title="Add student">
-      <CreateStudentForm onSubmit={handleSubmit} isSubmitting={isPending} errorMessage={errorMessage} />
+      <StudentForm onSubmit={handleSubmit} isSubmitting={isPending} errorMessage={errorMessage} />
     </Modal>
   );
 }

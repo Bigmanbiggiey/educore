@@ -3,9 +3,16 @@ import { Button } from "@/shared/components/Button";
 import { QueryBoundary } from "@/shared/components/QueryBoundary";
 import { Table } from "@/shared/components/Table";
 
-import { PAGE_SIZE, useApplications } from "../api/useApplications";
+import { useAcceptOffer } from "../api/useAcceptOffer";
+import { useApplications } from "../api/useApplications";
 import { useMakeOffer } from "../api/useMakeOffer";
-import { applicantName, canMakeOffer, type Application } from "../types";
+import {
+  applicantName,
+  canAcceptOffer,
+  canConvertToEnrollment,
+  canMakeOffer,
+  type Application,
+} from "../types";
 
 const STAGE_TONE: Record<Application["stage"], "neutral" | "success" | "warning" | "danger"> = {
   submitted: "neutral",
@@ -19,12 +26,26 @@ const STAGE_TONE: Record<Application["stage"], "neutral" | "success" | "warning"
 
 interface ApplicationsTableProps {
   page: number;
+  pageSize: number;
+  ordering?: string;
+  stage?: Application["stage"];
   onPageChange: (page: number) => void;
+  onConvertToEnrollment: (applicationId: string) => void;
+  onEdit: (application: Application) => void;
 }
 
-export function ApplicationsTable({ page, onPageChange }: ApplicationsTableProps) {
-  const query = useApplications(page);
-  const { mutate: makeOffer, isPending, variables: offeringId } = useMakeOffer();
+export function ApplicationsTable({
+  page,
+  pageSize,
+  ordering,
+  stage,
+  onPageChange,
+  onConvertToEnrollment,
+  onEdit,
+}: ApplicationsTableProps) {
+  const query = useApplications({ page, pageSize, ordering, stage });
+  const { mutate: makeOffer, isPending: isMakingOffer, variables: offeringId } = useMakeOffer();
+  const { mutate: acceptOffer, isPending: isAccepting, variables: acceptingId } = useAcceptOffer();
 
   const columns = [
     { key: "applicant", header: "Applicant", render: (row: Application) => applicantName(row) },
@@ -36,16 +57,36 @@ export function ApplicationsTable({ page, onPageChange }: ApplicationsTableProps
     {
       key: "actions",
       header: "",
-      render: (row: Application) =>
-        canMakeOffer(row) && (
-          <Button
-            variant="outline"
-            disabled={isPending && offeringId === row.id}
-            onClick={() => makeOffer(row.id)}
-          >
-            Make offer
+      render: (row: Application) => (
+        <div className="flex gap-2">
+          {canMakeOffer(row) && (
+            <Button
+              variant="outline"
+              disabled={isMakingOffer && offeringId === row.id}
+              onClick={() => makeOffer(row.id)}
+            >
+              Make offer
+            </Button>
+          )}
+          {canAcceptOffer(row) && (
+            <Button
+              variant="outline"
+              disabled={isAccepting && acceptingId === row.id}
+              onClick={() => acceptOffer(row.id)}
+            >
+              Accept offer
+            </Button>
+          )}
+          {canConvertToEnrollment(row) && (
+            <Button variant="outline" onClick={() => onConvertToEnrollment(row.id)}>
+              Convert to enrollment
+            </Button>
+          )}
+          <Button variant="secondary" onClick={() => onEdit(row)}>
+            Edit
           </Button>
-        ),
+        </div>
+      ),
     },
   ];
 
@@ -56,8 +97,8 @@ export function ApplicationsTable({ page, onPageChange }: ApplicationsTableProps
           columns={columns}
           rows={data.results}
           getRowKey={(row) => row.id}
-          emptyMessage="No applications yet."
-          pagination={{ count: data.count, page, pageSize: PAGE_SIZE, onPageChange }}
+          emptyMessage="No applications match these filters."
+          pagination={{ count: data.count, page, pageSize, onPageChange }}
         />
       )}
     </QueryBoundary>

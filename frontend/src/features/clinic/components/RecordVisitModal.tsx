@@ -5,7 +5,7 @@ import { Modal } from "@/shared/components/Modal";
 
 import { useRecordVisit } from "../api/useRecordVisit";
 import type { RecordVisitFormValues } from "../forms/record-visit.schema";
-import { RecordVisitForm } from "./RecordVisitForm";
+import { VisitForm } from "./VisitForm";
 
 interface RecordVisitModalProps {
   open: boolean;
@@ -28,7 +28,7 @@ export function RecordVisitModal({ open, onClose }: RecordVisitModalProps) {
 
   return (
     <Modal open={open} onClose={onClose} title="Record visit">
-      <RecordVisitForm onSubmit={handleSubmit} isSubmitting={isPending} errorMessage={errorMessage} />
+      <VisitForm onSubmit={handleSubmit} isSubmitting={isPending} errorMessage={errorMessage} />
     </Modal>
   );
 }

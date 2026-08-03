@@ -6,21 +6,35 @@ import { TextField } from "@/shared/components/TextField";
 
 import { recordVisitSchema, type RecordVisitFormValues } from "../forms/record-visit.schema";
 
-interface RecordVisitFormProps {
+interface VisitFormProps {
   onSubmit: (values: RecordVisitFormValues) => Promise<void> | void;
+  defaultValues?: Partial<RecordVisitFormValues>;
+  submitLabel?: string;
+  submittingLabel?: string;
   isSubmitting?: boolean;
   errorMessage?: string | null;
 }
 
-/** Kept separate from `RecordVisitModal` (which owns the mutation +
- * open/close state) so it can be tested with a plain mocked `onSubmit`, same
- * split `features/students`' `CreateStudentForm`/`CreateStudentModal` established. */
-export function RecordVisitForm({ onSubmit, isSubmitting, errorMessage }: RecordVisitFormProps) {
+/** Kept separate from `RecordVisitModal`/`EditVisitModal` (which own the
+ * mutation + open/close state) so it can be tested with a plain mocked
+ * `onSubmit`, same split `features/students`' form/modal pair established.
+ * Serves both create and edit — `defaultValues` is the only difference. */
+export function VisitForm({
+  onSubmit,
+  defaultValues,
+  submitLabel = "Record visit",
+  submittingLabel = "Recording…",
+  isSubmitting,
+  errorMessage,
+}: VisitFormProps) {
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RecordVisitFormValues>({ resolver: zodResolver(recordVisitSchema) });
+  } = useForm<RecordVisitFormValues>({
+    resolver: zodResolver(recordVisitSchema),
+    defaultValues,
+  });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
@@ -43,7 +57,7 @@ export function RecordVisitForm({ onSubmit, isSubmitting, errorMessage }: Record
       />
       <TextField label="Notes" error={errors.notes?.message} {...register("notes")} />
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Recording…" : "Record visit"}
+        {isSubmitting ? submittingLabel : submitLabel}
       </Button>
     </form>
   );

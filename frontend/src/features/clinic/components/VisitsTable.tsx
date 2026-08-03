@@ -1,22 +1,52 @@
+import { Button } from "@/shared/components/Button";
 import { QueryBoundary } from "@/shared/components/QueryBoundary";
 import { Table } from "@/shared/components/Table";
 
-import { PAGE_SIZE, useClinicVisits } from "../api/useClinicVisits";
+import { useClinicVisits } from "../api/useClinicVisits";
 import type { ClinicVisit } from "../types";
-
-const columns = [
-  { key: "student", header: "Student", render: (row: ClinicVisit) => row.student_id },
-  { key: "visit_date", header: "Visit date", render: (row: ClinicVisit) => row.visit_date },
-  { key: "notes", header: "Notes", render: (row: ClinicVisit) => row.notes || "—" },
-];
 
 interface VisitsTableProps {
   page: number;
+  pageSize: number;
+  ordering?: string;
+  studentId?: string;
+  visitDate?: string;
   onPageChange: (page: number) => void;
+  onEdit: (visit: ClinicVisit) => void;
+  onDelete: (visit: ClinicVisit) => void;
 }
 
-export function VisitsTable({ page, onPageChange }: VisitsTableProps) {
-  const query = useClinicVisits(page);
+export function VisitsTable({
+  page,
+  pageSize,
+  ordering,
+  studentId,
+  visitDate,
+  onPageChange,
+  onEdit,
+  onDelete,
+}: VisitsTableProps) {
+  const query = useClinicVisits({ page, pageSize, ordering, studentId, visitDate });
+
+  const columns = [
+    { key: "student", header: "Student", render: (row: ClinicVisit) => row.student_id },
+    { key: "visit_date", header: "Visit date", render: (row: ClinicVisit) => row.visit_date },
+    { key: "notes", header: "Notes", render: (row: ClinicVisit) => row.notes || "—" },
+    {
+      key: "actions",
+      header: "",
+      render: (row: ClinicVisit) => (
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => onEdit(row)}>
+            Edit
+          </Button>
+          <Button variant="danger" onClick={() => onDelete(row)}>
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <QueryBoundary query={query}>
@@ -25,8 +55,8 @@ export function VisitsTable({ page, onPageChange }: VisitsTableProps) {
           columns={columns}
           rows={data.results}
           getRowKey={(row) => row.id}
-          emptyMessage="No clinic visits recorded yet."
-          pagination={{ count: data.count, page, pageSize: PAGE_SIZE, onPageChange }}
+          emptyMessage="No clinic visits match these filters."
+          pagination={{ count: data.count, page, pageSize, onPageChange }}
         />
       )}
     </QueryBoundary>

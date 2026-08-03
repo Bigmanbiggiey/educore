@@ -2,17 +2,29 @@ import { Button } from "@/shared/components/Button";
 import { QueryBoundary } from "@/shared/components/QueryBoundary";
 import { Table } from "@/shared/components/Table";
 
-import { PAGE_SIZE, useRoutes } from "../api/useRoutes";
+import { useRoutes } from "../api/useRoutes";
 import type { Route } from "../types";
 
 interface RoutesTableProps {
   page: number;
+  pageSize: number;
+  ordering?: string;
   onPageChange: (page: number) => void;
   onViewManifest: (routeId: string) => void;
+  onEdit: (route: Route) => void;
+  onDelete: (route: Route) => void;
 }
 
-export function RoutesTable({ page, onPageChange, onViewManifest }: RoutesTableProps) {
-  const query = useRoutes(page);
+export function RoutesTable({
+  page,
+  pageSize,
+  ordering,
+  onPageChange,
+  onViewManifest,
+  onEdit,
+  onDelete,
+}: RoutesTableProps) {
+  const query = useRoutes({ page, pageSize, ordering });
 
   const columns = [
     { key: "name", header: "Route", render: (row: Route) => row.name },
@@ -21,9 +33,17 @@ export function RoutesTable({ page, onPageChange, onViewManifest }: RoutesTableP
       key: "actions",
       header: "",
       render: (row: Route) => (
-        <Button variant="outline" onClick={() => onViewManifest(row.id)}>
-          View manifest
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => onViewManifest(row.id)}>
+            View manifest
+          </Button>
+          <Button variant="secondary" onClick={() => onEdit(row)}>
+            Edit
+          </Button>
+          <Button variant="danger" onClick={() => onDelete(row)}>
+            Delete
+          </Button>
+        </div>
       ),
     },
   ];
@@ -36,7 +56,7 @@ export function RoutesTable({ page, onPageChange, onViewManifest }: RoutesTableP
           rows={data.results}
           getRowKey={(row) => row.id}
           emptyMessage="No routes set up yet."
-          pagination={{ count: data.count, page, pageSize: PAGE_SIZE, onPageChange }}
+          pagination={{ count: data.count, page, pageSize, onPageChange }}
         />
       )}
     </QueryBoundary>

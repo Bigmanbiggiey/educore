@@ -7,8 +7,11 @@ import { TextField } from "@/shared/components/TextField";
 
 import { createStudentSchema, type CreateStudentFormValues } from "../forms/create-student.schema";
 
-interface CreateStudentFormProps {
+interface StudentFormProps {
   onSubmit: (values: CreateStudentFormValues) => Promise<void> | void;
+  defaultValues?: Partial<CreateStudentFormValues>;
+  submitLabel?: string;
+  submittingLabel?: string;
   isSubmitting?: boolean;
   errorMessage?: string | null;
 }
@@ -19,15 +22,27 @@ const GENDER_OPTIONS = [
   { value: "female", label: "Female" },
 ];
 
-/** Kept separate from `CreateStudentModal` (which owns the mutation +
- * open/close state) so it can be tested with a plain mocked `onSubmit`,
- * same split `features/auth`'s `LoginForm`/`LoginPage` established. */
-export function CreateStudentForm({ onSubmit, isSubmitting, errorMessage }: CreateStudentFormProps) {
+/** Kept separate from `CreateStudentModal`/`EditStudentModal` (which own
+ * the mutation + open/close state) so it can be tested with a plain mocked
+ * `onSubmit`, same split `features/auth`'s `LoginForm`/`LoginPage`
+ * established. Serves both create and edit — `defaultValues` is the only
+ * difference, threaded straight into `useForm`. */
+export function StudentForm({
+  onSubmit,
+  defaultValues,
+  submitLabel = "Add student",
+  submittingLabel = "Adding…",
+  isSubmitting,
+  errorMessage,
+}: StudentFormProps) {
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<CreateStudentFormValues>({ resolver: zodResolver(createStudentSchema) });
+  } = useForm<CreateStudentFormValues>({
+    resolver: zodResolver(createStudentSchema),
+    defaultValues,
+  });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
@@ -56,7 +71,7 @@ export function CreateStudentForm({ onSubmit, isSubmitting, errorMessage }: Crea
         {...register("gender")}
       />
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Adding…" : "Add student"}
+        {isSubmitting ? submittingLabel : submitLabel}
       </Button>
     </form>
   );

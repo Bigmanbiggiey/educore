@@ -1,17 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "@/shared/lib/api";
+import { buildQueryString } from "@/shared/utils/buildQueryString";
 
 import type { PaginatedStudents } from "../types";
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
-export function useStudents(page: number) {
+interface StudentsListParams {
+  page: number;
+  pageSize: number;
+  ordering?: string;
+}
+
+export function useStudents({ page, pageSize, ordering }: StudentsListParams) {
   return useQuery({
-    queryKey: ["students", "list", { page }],
+    queryKey: ["students", "list", { page, pageSize, ordering }],
     queryFn: () =>
-      api.get<PaginatedStudents>(`/students/?page=${page}&page_size=${PAGE_SIZE}`),
+      api.get<PaginatedStudents>(
+        `/students/${buildQueryString({ page, page_size: pageSize, ordering })}`,
+      ),
   });
 }
 
-export { PAGE_SIZE };
+export { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS };

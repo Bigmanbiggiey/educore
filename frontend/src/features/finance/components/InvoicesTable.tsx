@@ -3,7 +3,7 @@ import { Button } from "@/shared/components/Button";
 import { QueryBoundary } from "@/shared/components/QueryBoundary";
 import { Table } from "@/shared/components/Table";
 
-import { PAGE_SIZE, useInvoices } from "../api/useInvoices";
+import { useInvoices } from "../api/useInvoices";
 import type { Invoice } from "../types";
 
 const STATUS_TONE: Record<Invoice["status"], "neutral" | "success" | "warning" | "danger"> = {
@@ -16,12 +16,26 @@ const STATUS_TONE: Record<Invoice["status"], "neutral" | "success" | "warning" |
 
 interface InvoicesTableProps {
   page: number;
+  pageSize: number;
+  ordering?: string;
+  status?: Invoice["status"];
+  student?: string;
   onPageChange: (page: number) => void;
   onRecordPayment: (invoiceId: string) => void;
+  onDelete: (invoice: Invoice) => void;
 }
 
-export function InvoicesTable({ page, onPageChange, onRecordPayment }: InvoicesTableProps) {
-  const query = useInvoices(page);
+export function InvoicesTable({
+  page,
+  pageSize,
+  ordering,
+  status,
+  student,
+  onPageChange,
+  onRecordPayment,
+  onDelete,
+}: InvoicesTableProps) {
+  const query = useInvoices({ page, pageSize, ordering, status, student });
 
   const columns = [
     { key: "student", header: "Student", render: (row: Invoice) => row.student_id.slice(0, 8) },
@@ -34,13 +48,18 @@ export function InvoicesTable({ page, onPageChange, onRecordPayment }: InvoicesT
     {
       key: "actions",
       header: "",
-      render: (row: Invoice) =>
-        row.status !== "paid" &&
-        row.status !== "cancelled" && (
-          <Button variant="outline" onClick={() => onRecordPayment(row.id)}>
-            Record payment
+      render: (row: Invoice) => (
+        <div className="flex gap-2">
+          {row.status !== "paid" && row.status !== "cancelled" && (
+            <Button variant="outline" onClick={() => onRecordPayment(row.id)}>
+              Record payment
+            </Button>
+          )}
+          <Button variant="danger" onClick={() => onDelete(row)}>
+            Delete
           </Button>
-        ),
+        </div>
+      ),
     },
   ];
 
@@ -52,7 +71,7 @@ export function InvoicesTable({ page, onPageChange, onRecordPayment }: InvoicesT
           rows={data.results}
           getRowKey={(row) => row.id}
           emptyMessage="No invoices yet."
-          pagination={{ count: data.count, page, pageSize: PAGE_SIZE, onPageChange }}
+          pagination={{ count: data.count, page, pageSize, onPageChange }}
         />
       )}
     </QueryBoundary>

@@ -1,16 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "@/shared/lib/api";
+import { buildQueryString } from "@/shared/utils/buildQueryString";
 
-import type { PaginatedInvoices } from "../types";
+import type { Invoice, PaginatedInvoices } from "../types";
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
-export function useInvoices(page: number) {
+interface InvoicesListParams {
+  page: number;
+  pageSize: number;
+  ordering?: string;
+  status?: Invoice["status"];
+  student?: string;
+}
+
+export function useInvoices({ page, pageSize, ordering, status, student }: InvoicesListParams) {
   return useQuery({
-    queryKey: ["finance", "invoices", { page }],
-    queryFn: () => api.get<PaginatedInvoices>(`/invoices/?page=${page}&page_size=${PAGE_SIZE}`),
+    queryKey: ["finance", "invoices", { page, pageSize, ordering, status, student }],
+    queryFn: () =>
+      api.get<PaginatedInvoices>(
+        `/invoices/${buildQueryString({ page, page_size: pageSize, ordering, status, student })}`,
+      ),
   });
 }
 
-export { PAGE_SIZE };
+export { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS };

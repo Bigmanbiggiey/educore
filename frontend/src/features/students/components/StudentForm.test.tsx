@@ -2,13 +2,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { CreateStudentForm } from "./CreateStudentForm";
+import { StudentForm } from "./StudentForm";
 
-describe("CreateStudentForm", () => {
+describe("StudentForm", () => {
   it("blocks submission and shows validation errors when required fields are empty", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
-    render(<CreateStudentForm onSubmit={onSubmit} />);
+    render(<StudentForm onSubmit={onSubmit} />);
 
     await user.click(screen.getByRole("button", { name: /add student/i }));
 
@@ -21,7 +21,7 @@ describe("CreateStudentForm", () => {
   it("submits with the entered values", async () => {
     const onSubmit = vi.fn();
     const user = userEvent.setup();
-    render(<CreateStudentForm onSubmit={onSubmit} />);
+    render(<StudentForm onSubmit={onSubmit} />);
 
     await user.type(screen.getByLabelText("Admission number"), "A-100");
     await user.type(screen.getByLabelText("First name"), "Jane");
@@ -41,12 +41,24 @@ describe("CreateStudentForm", () => {
   });
 
   it("renders a server-side error message", () => {
-    render(<CreateStudentForm onSubmit={vi.fn()} errorMessage="Admission number already in use." />);
+    render(<StudentForm onSubmit={vi.fn()} errorMessage="Admission number already in use." />);
     expect(screen.getByRole("alert")).toHaveTextContent("Admission number already in use.");
   });
 
   it("disables the submit button while submitting", () => {
-    render(<CreateStudentForm onSubmit={vi.fn()} isSubmitting />);
+    render(<StudentForm onSubmit={vi.fn()} isSubmitting />);
     expect(screen.getByRole("button", { name: /adding/i })).toBeDisabled();
+  });
+
+  it("prefills fields from defaultValues and supports a custom submit label", () => {
+    render(
+      <StudentForm
+        onSubmit={vi.fn()}
+        defaultValues={{ admission_number: "A-100", first_name: "Jane", last_name: "Doe" }}
+        submitLabel="Save changes"
+      />,
+    );
+    expect(screen.getByLabelText("Admission number")).toHaveValue("A-100");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
   });
 });
