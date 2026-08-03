@@ -5,7 +5,12 @@ SameSite=Strict cookie the frontend never touches directly
 reads or writes that cookie.
 """
 
+import time
+from datetime import timedelta
+
 from django.conf import settings
+from django.core.cache import cache
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -13,9 +18,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from apps.permissions.serializers import LoginSerializer, MeSerializer
+from apps.core.permissions import IsPlatformStaff
+from apps.core.signals import audit_event
+from apps.institutions.models import Institution
+from apps.permissions.serializers import LoginSerializer, MeSerializer, PlatformLoginSerializer
+
+ACT_AS_TOKEN_LIFETIME = timedelta(minutes=30)
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
@@ -49,6 +59,98 @@ class LoginView(APIView):
         response = Response({"access_token": str(refresh.access_token)})
         _set_refresh_cookie(response, str(refresh))
         return response
+
+
+class HostContextView(APIView):
+    """Tells the frontend which login flow to render — `docs/permissions.md`
+    §7's platform-staff login only makes sense on a platform host.
+    `TenantMiddleware` has already 404'd any genuinely-unresolvable host by
+    the time this runs, so `request.institution is None` here can only mean
+    "platform host", never "unknown host".
+    """
+
+    permission_classes = [AllowAny]
+
+    @extend_schema(request=None, responses={200: None})
+    def get(self, request):
+        host_type = "institution" if getattr(request, "institution", None) else "platform"
+        return Response({"host_type": host_type})
+
+
+class PlatformLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(request=PlatformLoginSerializer, responses={200: None})
+    def post(self, request):
+        serializer = PlatformLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+
+        refresh = RefreshToken.for_user(user)
+        response = Response({"access_token": str(refresh.access_token)})
+        _set_refresh_cookie(response, str(refresh))
+        return response
+
+
+class ActAsView(APIView):
+    """Starts a break-glass session (docs/permissions.md §7) — mints a
+    short-lived, elevated access token scoped to one institution, rather
+    than a new login. Audited as `platform.admin.impersonate_start`.
+    """
+
+    permission_classes = [IsPlatformStaff]
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, institution_id=None):
+        institution = get_object_or_404(Institution, id=institution_id, is_active=True)
+
+        token = AccessToken.for_user(request.user)
+        token.set_exp(lifetime=ACT_AS_TOKEN_LIFETIME)
+        token["acting_as_admin"] = True
+        token["acting_institution_id"] = str(institution.id)
+
+        audit_event.send(
+            sender=self.__class__,
+            actor=request.user,
+            institution=institution,
+            action="platform.admin.impersonate_start",
+            acting_as_admin=True,
+        )
+        return Response({"access_token": str(token)})
+
+
+class EndActAsView(APIView):
+    """Ends a break-glass session on explicit exit (docs/permissions.md
+    §7) — revokes the elevated token immediately (rather than relying on
+    its natural 30-minute expiry) by flagging its `jti` in the cache,
+    which `TenantMiddleware._resolve_acting_institution` checks on every
+    subsequent request. Audited as `platform.admin.impersonate_end`.
+    """
+
+    permission_classes = [IsPlatformStaff]
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request):
+        token = request.auth
+        institution_id = token.get("acting_institution_id") if token else None
+        institution = (
+            Institution.objects.filter(id=institution_id).first() if institution_id else None
+        )
+
+        if token is not None:
+            jti = token.get("jti")
+            remaining = int(token["exp"] - time.time())
+            if jti and remaining > 0:
+                cache.set(f"impersonation_revoked:{jti}", True, timeout=remaining)
+
+        audit_event.send(
+            sender=self.__class__,
+            actor=request.user,
+            institution=institution,
+            action="platform.admin.impersonate_end",
+            acting_as_admin=True,
+        )
+        return Response({"detail": "Break-glass session ended."})
 
 
 class RefreshView(APIView):

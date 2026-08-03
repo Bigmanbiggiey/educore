@@ -26,6 +26,11 @@ class IsInstitutionMember(BasePermission):
         institution = getattr(request, "institution", None)
         if institution is None or not request.user.is_authenticated:
             return False
+        # Break-glass session (docs/permissions.md §7): a System Admin
+        # acting inside this institution's data for the duration of a
+        # time-boxed act-as window, never a real InstitutionMembership.
+        if getattr(request, "acting_as_admin", False):
+            return True
         return is_institution_member(request.user, institution)
 
 
@@ -35,6 +40,8 @@ def HasRole(*role_names: str) -> type[BasePermission]:
             institution = getattr(request, "institution", None)
             if institution is None or not request.user.is_authenticated:
                 return False
+            if getattr(request, "acting_as_admin", False):
+                return True
             access = get_membership_access(request.user, institution)
             return bool(access.role_names & set(role_names))
 
@@ -47,6 +54,8 @@ def HasPermission(code: str) -> type[BasePermission]:
             institution = getattr(request, "institution", None)
             if institution is None or not request.user.is_authenticated:
                 return False
+            if getattr(request, "acting_as_admin", False):
+                return True
             access = get_membership_access(request.user, institution)
             return code in access.permission_codes
 

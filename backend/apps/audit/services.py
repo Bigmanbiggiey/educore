@@ -21,6 +21,7 @@ def log_action(
     target: models.Model | None = None,
     diff: dict | None = None,
     ip_address: str | None = None,
+    acting_as_admin: bool = False,
 ) -> AuditLog:
     return AuditLog.objects.create(
         actor=actor,
@@ -30,4 +31,5 @@ def log_action(
         target_object_id=target.pk if target else None,
         diff=diff or {},
         ip_address=ip_address,
+        acting_as_admin=acting_as_admin,
     )

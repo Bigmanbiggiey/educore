@@ -6,6 +6,7 @@ import { PostLoginRedirect } from "./pages/PostLoginRedirect";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { RequireAuth } from "./RequireAuth";
 import { RequireRole } from "./RequireRole";
+import { RequireSystemAdmin } from "./RequireSystemAdmin";
 
 // One entry per portal, each with a statically-written `import()` so Vite
 // code-splits per portal (docs/frontend-architecture.md §1: "a Librarian's
@@ -14,11 +15,9 @@ import { RequireRole } from "./RequireRole";
 // statically analyzed for chunking, so this is 12 explicit entries rather
 // than a loop building the import call itself.
 //
-// "system-admin" has no entry here: that access model is
-// `is_platform_staff`, not an `InstitutionMembership`/role
-// (docs/permissions.md §7's "break glass" flow), so there's no role to
-// guard it with yet — the portal folder exists for structural
-// completeness only until that backend flow is built.
+// "system-admin" is deliberately not in this list: it's gated by
+// `is_platform_staff`, not a role (docs/permissions.md §7), so it needs
+// `RequireSystemAdmin`, not `RequireRole` — wired as its own route below.
 const PORTAL_ROUTES = [
   {
     path: "/institution-admin",
@@ -74,6 +73,11 @@ export const router = createBrowserRouter([
         element: <RequireRole roles={roles} />,
         children: [{ index: true, lazy }],
       })),
+      {
+        path: "/system-admin",
+        element: <RequireSystemAdmin />,
+        children: [{ index: true, lazy: () => import("@/portals/system-admin/routes") }],
+      },
     ],
   },
 ]);

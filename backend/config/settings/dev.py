@@ -11,7 +11,10 @@ CORS_ALLOWED_ORIGINS = [
 # No real Domain rows exist for local dev — treat the dev host(s) as
 # platform hosts so TenantMiddleware doesn't 404 every request
 # (docs/multitenancy.md §2). "testserver" is Django's test-client default.
-PLATFORM_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+# "admin.educore.africa" is the real platform-staff host docs/permissions.md
+# §7 fixes — added here so the break-glass flow is reachable locally too,
+# not just in a real deployment's DNS/nginx config.
+PLATFORM_HOSTS = ["localhost", "127.0.0.1", "testserver", "admin.educore.africa"]
 
 # Local dev is plain http:// — a browser silently drops a `Secure` cookie
 # set over a non-HTTPS connection, which would make the refresh cookie

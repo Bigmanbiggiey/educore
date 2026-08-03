@@ -11,6 +11,12 @@ urlpatterns = [
     # check needs a dependency accounts doesn't have).
     path("auth/", include("apps.accounts.urls")),
     path("auth/", include("apps.permissions.urls")),
+    # docs/permissions.md §7: platform-staff endpoints, gated by
+    # `is_platform_staff` rather than `InstitutionMembership`/`Role` — never
+    # reachable via `TenantMiddleware`'s normal institution-Host resolution.
+    path("platform/", include("apps.permissions.platform_urls")),
+    path("platform/", include("apps.institutions.urls")),
+    path("platform/", include("apps.audit.urls")),
     path("", include("apps.classes_streams.urls")),
     path("", include("apps.students.urls")),
     path("", include("apps.staff.urls")),

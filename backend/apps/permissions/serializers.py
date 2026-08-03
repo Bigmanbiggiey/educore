@@ -40,6 +40,25 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
+class PlatformLoginSerializer(serializers.Serializer):
+    """Parallel to `LoginSerializer`, not a branch inside it — deliberately
+    never reads `request.institution` (docs/permissions.md §7: platform
+    staff access has nothing to do with institution membership)."""
+
+    email_or_phone = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        user = get_user_by_email_or_phone(attrs["email_or_phone"])
+        if user is None or not user.is_active or not user.check_password(attrs["password"]):
+            raise AuthenticationFailed("No active account found with the given credentials.")
+        if not user.is_platform_staff:
+            raise AuthenticationFailed("No active account found with the given credentials.")
+
+        attrs["user"] = user
+        return attrs
+
+
 class InstitutionMembershipSummarySerializer(serializers.Serializer):
     roles = serializers.ListField(child=serializers.CharField())
 
@@ -54,6 +73,7 @@ class MeSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     email = serializers.EmailField(allow_null=True)
     phone = serializers.CharField(allow_null=True)
+    is_platform_staff = serializers.BooleanField()
     institution_membership = serializers.SerializerMethodField()
 
     @extend_schema_field(InstitutionMembershipSummarySerializer(allow_null=True))

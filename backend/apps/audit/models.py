@@ -43,6 +43,11 @@ class AuditLog(UUIDPrimaryKeyModel):
         related_name="audit_logs",
     )
     action = models.CharField(max_length=150)
+    # docs/permissions.md §7: a first-class, directly queryable column, not
+    # buried in `diff` — the explicit point of the break-glass design is
+    # turning "was this action taken under an elevated System Admin
+    # session" into a queryable fact, not something you have to parse out.
+    acting_as_admin = models.BooleanField(default=False)
     # UUIDField, not the PositiveIntegerField GenericForeignKey defaults to
     # assuming — every model in this codebase has a UUID PK
     # (apps.core.models.UUIDPrimaryKeyModel), so target_object_id must match.

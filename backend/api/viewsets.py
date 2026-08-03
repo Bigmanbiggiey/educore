@@ -31,11 +31,39 @@ generic tenant-scoped one.
 
 from rest_framework import viewsets
 
+from apps.audit.services import log_action
 from apps.core.context import current_user
 
 
 class TenantScopedViewSetMixin:
     queryset_model = None
+
+    def _log_write_if_acting_as_admin(self, verb: str, instance) -> None:
+        """docs/permissions.md §7: every write taken during a break-glass
+        act-as session is audited with `acting_as_admin=True`, regardless
+        of which app's viewset made it — generic here rather than
+        threaded through every app's `views.py` individually. This module
+        lives outside `apps.*` (`root_package = apps` in `.importlinter`),
+        so it's the one place that can import `apps.audit` directly
+        without tripping the Layer 0 sibling-independence contract that
+        blocks e.g. `apps.permissions` from doing the same.
+
+        Known, stated gap: viewsets with a fully custom `create()` that
+        never calls `perform_create` (`library.LoanViewSet`,
+        `finance.PaymentViewSet`, `hostel.BedAllocationViewSet`, a few
+        others) don't route through here — not worth threading manual
+        logging into each one for this pass.
+        """
+        if not getattr(self.request, "acting_as_admin", False):
+            return
+        meta = instance._meta
+        log_action(
+            actor=self.request.user if self.request.user.is_authenticated else None,
+            institution=getattr(self.request, "institution", None),
+            action=f"{meta.app_label}.{meta.model_name}.{verb}",
+            target=instance,
+            acting_as_admin=True,
+        )
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
@@ -74,6 +102,15 @@ class TenantScopedViewSetMixin:
 class TenantScopedModelViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(institution_id=self.request.institution.id)
+        self._log_write_if_acting_as_admin("create", serializer.instance)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self._log_write_if_acting_as_admin("update", serializer.instance)
+
+    def perform_destroy(self, instance):
+        self._log_write_if_acting_as_admin("destroy", instance)
+        instance.delete()
 
 
 class TenantScopedReadOnlyModelViewSet(TenantScopedViewSetMixin, viewsets.ReadOnlyModelViewSet):

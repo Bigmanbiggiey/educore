@@ -11,8 +11,13 @@ import { useAuth } from "../providers/AuthProvider";
  * common case (docs/frontend-architecture.md §1).
  */
 export function PostLoginRedirect() {
-  const { roles, logout } = useAuth();
+  const { roles, isPlatformStaff, logout } = useAuth();
   const slugs = portalSlugsForRoles(roles);
+
+  // docs/permissions.md §7: granted via `is_platform_staff`, never a role,
+  // so it never appears in `roles`/`portalSlugsForRoles` — checked first,
+  // ahead of the role-based picker below.
+  if (isPlatformStaff) return <Navigate to="/system-admin" replace />;
 
   if (slugs.length === 1) return <Navigate to={`/${slugs[0]}`} replace />;
 

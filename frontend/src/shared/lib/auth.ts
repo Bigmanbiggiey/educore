@@ -17,7 +17,12 @@ export interface MeResponse {
   id: string;
   email: string | null;
   phone: string | null;
+  is_platform_staff: boolean;
   institution_membership: { roles: string[] } | null;
+}
+
+export interface HostContext {
+  host_type: "platform" | "institution";
 }
 
 let accessToken: string | null = null;
@@ -28,6 +33,15 @@ export function getAccessToken(): string | null {
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+}
+
+export async function fetchHostContext(): Promise<HostContext> {
+  const res = await fetch("/api/v1/auth/host-context/");
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as ApiErrorBody;
+    throw new ApiError(res.status, body);
+  }
+  return (await res.json()) as HostContext;
 }
 
 export async function login(emailOrPhone: string, password: string): Promise<void> {
@@ -43,6 +57,50 @@ export async function login(emailOrPhone: string, password: string): Promise<voi
   }
   const data = (await res.json()) as { access_token: string };
   setAccessToken(data.access_token);
+}
+
+/** Parallel to `login`, not a branch inside it — docs/permissions.md §7's
+ * platform-staff login has nothing to do with institution membership. */
+export async function platformLogin(emailOrPhone: string, password: string): Promise<void> {
+  const res = await fetch("/api/v1/platform/auth/login/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email_or_phone: emailOrPhone, password }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as ApiErrorBody;
+    throw new ApiError(res.status, body);
+  }
+  const data = (await res.json()) as { access_token: string };
+  setAccessToken(data.access_token);
+}
+
+/** Starts a break-glass session (docs/permissions.md §7) — returns the
+ * elevated access token rather than setting it directly, so the caller
+ * (`AuthProvider.actAs`) can stash the current platform token first. */
+export async function actAs(institutionId: string): Promise<string> {
+  const res = await fetch(`/api/v1/platform/admin/act-as/${institutionId}/`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as ApiErrorBody;
+    throw new ApiError(res.status, body);
+  }
+  const data = (await res.json()) as { access_token: string };
+  return data.access_token;
+}
+
+/** Ends a break-glass session — the caller still needs to restore the
+ * stashed platform token afterward (`AuthProvider.endActAs`). */
+export async function endActAs(): Promise<void> {
+  await fetch("/api/v1/platform/admin/act-as/end/", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` },
+    credentials: "include",
+  });
 }
 
 export async function logout(): Promise<void> {
