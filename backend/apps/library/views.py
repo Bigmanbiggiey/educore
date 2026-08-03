@@ -54,6 +54,10 @@ class LoanViewSet(TenantScopedModelViewSet):
     serializer_class = LoanSerializer
     filterset_class = LoanFilterSet
     get_permissions = _write_gated_by("library.loan.manage")
+    # `copy`/`copy.book` are real intra-app FKs (see models.py's module
+    # docstring), so these traverse cleanly — unlike `borrower_id`, a plain
+    # cross-app UUID with nothing to search.
+    search_fields = ["copy__barcode", "copy__book__title"]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

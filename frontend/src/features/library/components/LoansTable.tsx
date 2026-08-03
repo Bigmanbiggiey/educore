@@ -12,6 +12,7 @@ interface LoansTableProps {
   ordering?: string;
   borrowerType?: "student" | "staff";
   returned?: boolean;
+  search?: string;
   onPageChange: (page: number) => void;
 }
 
@@ -21,9 +22,10 @@ export function LoansTable({
   ordering,
   borrowerType,
   returned,
+  search,
   onPageChange,
 }: LoansTableProps) {
-  const query = useLoans({ page, pageSize, ordering, borrowerType, returned });
+  const query = useLoans({ page, pageSize, ordering, borrowerType, returned, search });
   const { mutate: returnLoan, isPending, variables: returningId } = useReturnLoan();
 
   const columns = [

@@ -72,6 +72,7 @@ class ClinicVisitViewSet(TenantScopedModelViewSet):
     serializer_class = ClinicVisitSerializer
     filterset_class = ClinicVisitFilterSet
     get_permissions = _restricted_to("clinic_visit")
+    search_fields = ["notes"]
 
 
 class MedicationViewSet(TenantScopedModelViewSet):

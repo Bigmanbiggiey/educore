@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { Button } from "@/shared/components/Button";
 import { Select } from "@/shared/components/Select";
+import { TextField } from "@/shared/components/TextField";
 
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../api/useLoans";
 import { CheckoutModal } from "./CheckoutModal";
@@ -42,6 +43,7 @@ export function LibraryScreen() {
   const [ordering, setOrdering] = useState("");
   const [borrowerType, setBorrowerType] = useState<"student" | "staff" | "">("");
   const [loanState, setLoanState] = useState("active");
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
   function resetToFirstPage() {
@@ -55,6 +57,16 @@ export function LibraryScreen() {
         <Button onClick={() => setModalOpen(true)}>Check out</Button>
       </div>
       <div className="flex flex-wrap gap-4">
+        <TextField
+          label="Search"
+          name="search"
+          placeholder="Copy barcode or book title"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            resetToFirstPage();
+          }}
+        />
         <Select
           label="Loan state"
           name="loan-state"
@@ -102,6 +114,7 @@ export function LibraryScreen() {
         ordering={ordering || undefined}
         borrowerType={borrowerType || undefined}
         returned={loanStateToReturned(loanState)}
+        search={search || undefined}
         onPageChange={setPage}
       />
       <CheckoutModal open={modalOpen} onClose={() => setModalOpen(false)} />

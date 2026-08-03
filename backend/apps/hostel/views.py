@@ -48,6 +48,9 @@ class RoomViewSet(TenantScopedModelViewSet):
     queryset_model = Room
     serializer_class = RoomSerializer
     get_permissions = _write_gated_by("hostel.room.manage")
+    # `hostel` is a real intra-app FK (see models.py's module docstring),
+    # so this traverses cleanly.
+    search_fields = ["room_number", "hostel__name"]
 
     @action(detail=True, methods=["get"])
     def occupancy(self, request, pk=None):

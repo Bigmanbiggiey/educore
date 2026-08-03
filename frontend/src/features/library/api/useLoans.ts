@@ -15,11 +15,19 @@ interface LoansListParams {
   borrowerType?: "student" | "staff";
   /** `undefined` shows every loan regardless of return state. */
   returned?: boolean;
+  search?: string;
 }
 
-export function useLoans({ page, pageSize, ordering, borrowerType, returned }: LoansListParams) {
+export function useLoans({
+  page,
+  pageSize,
+  ordering,
+  borrowerType,
+  returned,
+  search,
+}: LoansListParams) {
   return useQuery({
-    queryKey: ["library", "loans", { page, pageSize, ordering, borrowerType, returned }],
+    queryKey: ["library", "loans", { page, pageSize, ordering, borrowerType, returned, search }],
     queryFn: () =>
       api.get<PaginatedLoans>(
         `/loans/${buildQueryString({
@@ -28,6 +36,7 @@ export function useLoans({ page, pageSize, ordering, borrowerType, returned }: L
           ordering,
           borrower_type: borrowerType,
           returned,
+          search,
         })}`,
       ),
   });

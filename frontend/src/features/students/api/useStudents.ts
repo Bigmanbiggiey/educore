@@ -12,14 +12,15 @@ interface StudentsListParams {
   page: number;
   pageSize: number;
   ordering?: string;
+  search?: string;
 }
 
-export function useStudents({ page, pageSize, ordering }: StudentsListParams) {
+export function useStudents({ page, pageSize, ordering, search }: StudentsListParams) {
   return useQuery({
-    queryKey: ["students", "list", { page, pageSize, ordering }],
+    queryKey: ["students", "list", { page, pageSize, ordering, search }],
     queryFn: () =>
       api.get<PaginatedStudents>(
-        `/students/${buildQueryString({ page, page_size: pageSize, ordering })}`,
+        `/students/${buildQueryString({ page, page_size: pageSize, ordering, search })}`,
       ),
   });
 }

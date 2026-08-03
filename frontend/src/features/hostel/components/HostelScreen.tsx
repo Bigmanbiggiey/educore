@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 import { Select } from "@/shared/components/Select";
+import { TextField } from "@/shared/components/TextField";
 
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../api/useRooms";
 import { useDeleteRoom } from "../api/useDeleteRoom";
@@ -26,6 +27,7 @@ export function HostelScreen() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [ordering, setOrdering] = useState("");
+  const [search, setSearch] = useState("");
   const [occupancyRoomId, setOccupancyRoomId] = useState<string | null>(null);
   const [allocateRoomId, setAllocateRoomId] = useState<string | null>(null);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -42,6 +44,16 @@ export function HostelScreen() {
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold text-text">Rooms</h2>
       <div className="flex flex-wrap gap-4">
+        <TextField
+          label="Search"
+          name="search"
+          placeholder="Room number or hostel name"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+        />
         <Select
           label="Sort by"
           name="sort-by"
@@ -67,6 +79,7 @@ export function HostelScreen() {
         page={page}
         pageSize={pageSize}
         ordering={ordering || undefined}
+        search={search || undefined}
         onPageChange={setPage}
         onViewOccupancy={setOccupancyRoomId}
         onAllocateBed={setAllocateRoomId}

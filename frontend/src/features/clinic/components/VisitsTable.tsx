@@ -11,6 +11,7 @@ interface VisitsTableProps {
   ordering?: string;
   studentId?: string;
   visitDate?: string;
+  search?: string;
   onPageChange: (page: number) => void;
   onEdit: (visit: ClinicVisit) => void;
   onDelete: (visit: ClinicVisit) => void;
@@ -22,11 +23,12 @@ export function VisitsTable({
   ordering,
   studentId,
   visitDate,
+  search,
   onPageChange,
   onEdit,
   onDelete,
 }: VisitsTableProps) {
-  const query = useClinicVisits({ page, pageSize, ordering, studentId, visitDate });
+  const query = useClinicVisits({ page, pageSize, ordering, studentId, visitDate, search });
 
   const columns = [
     { key: "student", header: "Student", render: (row: ClinicVisit) => row.student_id },

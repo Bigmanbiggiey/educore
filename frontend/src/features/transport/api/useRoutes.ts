@@ -12,13 +12,16 @@ interface RoutesListParams {
   page: number;
   pageSize: number;
   ordering?: string;
+  search?: string;
 }
 
-export function useRoutes({ page, pageSize, ordering }: RoutesListParams) {
+export function useRoutes({ page, pageSize, ordering, search }: RoutesListParams) {
   return useQuery({
-    queryKey: ["transport", "routes", { page, pageSize, ordering }],
+    queryKey: ["transport", "routes", { page, pageSize, ordering, search }],
     queryFn: () =>
-      api.get<PaginatedRoutes>(`/routes/${buildQueryString({ page, page_size: pageSize, ordering })}`),
+      api.get<PaginatedRoutes>(
+        `/routes/${buildQueryString({ page, page_size: pageSize, ordering, search })}`,
+      ),
   });
 }
 

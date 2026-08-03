@@ -9,6 +9,7 @@ interface RoutesTableProps {
   page: number;
   pageSize: number;
   ordering?: string;
+  search?: string;
   onPageChange: (page: number) => void;
   onViewManifest: (routeId: string) => void;
   onEdit: (route: Route) => void;
@@ -19,12 +20,13 @@ export function RoutesTable({
   page,
   pageSize,
   ordering,
+  search,
   onPageChange,
   onViewManifest,
   onEdit,
   onDelete,
 }: RoutesTableProps) {
-  const query = useRoutes({ page, pageSize, ordering });
+  const query = useRoutes({ page, pageSize, ordering, search });
 
   const columns = [
     { key: "name", header: "Route", render: (row: Route) => row.name },

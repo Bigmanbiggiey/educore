@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/shared/components/Button";
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 import { Select } from "@/shared/components/Select";
+import { TextField } from "@/shared/components/TextField";
 
 import { useDeleteStudent } from "../api/useDeleteStudent";
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../api/useStudents";
@@ -30,6 +31,7 @@ export function StudentsScreen() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [ordering, setOrdering] = useState("");
+  const [search, setSearch] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
@@ -48,6 +50,16 @@ export function StudentsScreen() {
         <Button onClick={() => setCreateModalOpen(true)}>Add student</Button>
       </div>
       <div className="flex flex-wrap gap-4">
+        <TextField
+          label="Search"
+          name="search"
+          placeholder="Name or admission number"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+        />
         <Select
           label="Sort by"
           name="sort-by"
@@ -73,6 +85,7 @@ export function StudentsScreen() {
         page={page}
         pageSize={pageSize}
         ordering={ordering || undefined}
+        search={search || undefined}
         onPageChange={setPage}
         onEdit={setEditingStudent}
         onDelete={setDeletingStudent}

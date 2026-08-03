@@ -12,13 +12,16 @@ interface RoomsListParams {
   page: number;
   pageSize: number;
   ordering?: string;
+  search?: string;
 }
 
-export function useRooms({ page, pageSize, ordering }: RoomsListParams) {
+export function useRooms({ page, pageSize, ordering, search }: RoomsListParams) {
   return useQuery({
-    queryKey: ["hostel", "rooms", { page, pageSize, ordering }],
+    queryKey: ["hostel", "rooms", { page, pageSize, ordering, search }],
     queryFn: () =>
-      api.get<PaginatedRooms>(`/rooms/${buildQueryString({ page, page_size: pageSize, ordering })}`),
+      api.get<PaginatedRooms>(
+        `/rooms/${buildQueryString({ page, page_size: pageSize, ordering, search })}`,
+      ),
   });
 }
 

@@ -9,6 +9,7 @@ interface RoomsTableProps {
   page: number;
   pageSize: number;
   ordering?: string;
+  search?: string;
   onPageChange: (page: number) => void;
   onViewOccupancy: (roomId: string) => void;
   onAllocateBed: (roomId: string) => void;
@@ -20,13 +21,14 @@ export function RoomsTable({
   page,
   pageSize,
   ordering,
+  search,
   onPageChange,
   onViewOccupancy,
   onAllocateBed,
   onEdit,
   onDelete,
 }: RoomsTableProps) {
-  const query = useRooms({ page, pageSize, ordering });
+  const query = useRooms({ page, pageSize, ordering, search });
 
   const columns = [
     { key: "hostel", header: "Hostel", render: (row: Room) => row.hostel },

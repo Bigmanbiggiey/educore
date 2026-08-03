@@ -9,6 +9,7 @@ interface StudentsTableProps {
   page: number;
   pageSize: number;
   ordering?: string;
+  search?: string;
   onPageChange: (page: number) => void;
   onEdit: (student: Student) => void;
   onDelete: (student: Student) => void;
@@ -18,11 +19,12 @@ export function StudentsTable({
   page,
   pageSize,
   ordering,
+  search,
   onPageChange,
   onEdit,
   onDelete,
 }: StudentsTableProps) {
-  const query = useStudents({ page, pageSize, ordering });
+  const query = useStudents({ page, pageSize, ordering, search });
 
   const columns = [
     {

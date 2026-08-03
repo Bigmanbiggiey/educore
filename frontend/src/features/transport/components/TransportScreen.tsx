@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { ConfirmModal } from "@/shared/components/ConfirmModal";
 import { Select } from "@/shared/components/Select";
+import { TextField } from "@/shared/components/TextField";
 
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../api/useRoutes";
 import { useDeleteRoute } from "../api/useDeleteRoute";
@@ -25,6 +26,7 @@ export function TransportScreen() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [ordering, setOrdering] = useState("");
+  const [search, setSearch] = useState("");
   const [manifestRouteId, setManifestRouteId] = useState<string | null>(null);
   const [editingRoute, setEditingRoute] = useState<Route | null>(null);
   const [deletingRoute, setDeletingRoute] = useState<Route | null>(null);
@@ -40,6 +42,16 @@ export function TransportScreen() {
     <div className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold text-text">Routes</h2>
       <div className="flex flex-wrap gap-4">
+        <TextField
+          label="Search"
+          name="search"
+          placeholder="Route name or vehicle registration"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+        />
         <Select
           label="Sort by"
           name="sort-by"
@@ -65,6 +77,7 @@ export function TransportScreen() {
         page={page}
         pageSize={pageSize}
         ordering={ordering || undefined}
+        search={search || undefined}
         onPageChange={setPage}
         onViewManifest={setManifestRouteId}
         onEdit={setEditingRoute}

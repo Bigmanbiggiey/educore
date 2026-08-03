@@ -36,6 +36,7 @@ class StudentViewSet(TenantScopedModelViewSet):
     queryset_model = Student
     serializer_class = StudentSerializer
     get_permissions = _write_gated_by("students.student.manage")
+    search_fields = ["admission_number", "first_name", "last_name"]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):

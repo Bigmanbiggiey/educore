@@ -29,6 +29,7 @@ export function ClinicScreen() {
   const [ordering, setOrdering] = useState("");
   const [studentId, setStudentId] = useState("");
   const [visitDate, setVisitDate] = useState("");
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<ClinicVisit | null>(null);
   const [deletingVisit, setDeletingVisit] = useState<ClinicVisit | null>(null);
@@ -51,6 +52,16 @@ export function ClinicScreen() {
         <Button onClick={() => setModalOpen(true)}>Record visit</Button>
       </div>
       <div className="flex flex-wrap gap-4">
+        <TextField
+          label="Search"
+          name="search"
+          placeholder="Notes"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            resetToFirstPage();
+          }}
+        />
         <TextField
           label="Student ID"
           name="student-id-filter"
@@ -97,6 +108,7 @@ export function ClinicScreen() {
         ordering={ordering || undefined}
         studentId={studentId || undefined}
         visitDate={visitDate || undefined}
+        search={search || undefined}
         onPageChange={setPage}
         onEdit={setEditingVisit}
         onDelete={setDeletingVisit}

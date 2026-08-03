@@ -47,6 +47,9 @@ class RouteViewSet(TenantScopedModelViewSet):
     queryset_model = Route
     serializer_class = RouteSerializer
     get_permissions = _write_gated_by("transport.route.manage")
+    # `vehicle` is a real intra-app FK (see models.py's module docstring),
+    # so this traverses cleanly.
+    search_fields = ["name", "vehicle__registration_number"]
 
     @action(detail=True, methods=["get"])
     def manifest(self, request, pk=None):

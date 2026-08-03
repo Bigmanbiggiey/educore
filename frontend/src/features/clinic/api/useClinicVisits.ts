@@ -14,6 +14,7 @@ interface ClinicVisitsListParams {
   ordering?: string;
   studentId?: string;
   visitDate?: string;
+  search?: string;
 }
 
 export function useClinicVisits({
@@ -22,9 +23,10 @@ export function useClinicVisits({
   ordering,
   studentId,
   visitDate,
+  search,
 }: ClinicVisitsListParams) {
   return useQuery({
-    queryKey: ["clinic", "visits", { page, pageSize, ordering, studentId, visitDate }],
+    queryKey: ["clinic", "visits", { page, pageSize, ordering, studentId, visitDate, search }],
     queryFn: () =>
       api.get<PaginatedClinicVisits>(
         `/clinic-visits/${buildQueryString({
@@ -33,6 +35,7 @@ export function useClinicVisits({
           ordering,
           student_id: studentId,
           visit_date: visitDate,
+          search,
         })}`,
       ),
   });
