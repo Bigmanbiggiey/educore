@@ -13,7 +13,6 @@ celerybeat-schedule
 node_modules/
 dist/
 *.tsbuildinfo
-frontend/src/shared/lib/api-types.ts
 
 # Env
 .env
