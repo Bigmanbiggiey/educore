@@ -8,6 +8,7 @@ describe("provisionInstitutionSchema", () => {
       name: "St Mary",
       slug: "st-mary",
       curriculum_types: ["cbc"],
+      admin_email: "admin@stmary.ac.ke",
     });
     expect(result.success).toBe(true);
   });
@@ -17,6 +18,7 @@ describe("provisionInstitutionSchema", () => {
       name: "",
       slug: "st-mary",
       curriculum_types: ["cbc"],
+      admin_email: "admin@stmary.ac.ke",
     });
     expect(result.success).toBe(false);
   });
@@ -26,6 +28,7 @@ describe("provisionInstitutionSchema", () => {
       name: "St Mary",
       slug: "St Mary",
       curriculum_types: ["cbc"],
+      admin_email: "admin@stmary.ac.ke",
     });
     expect(result.success).toBe(false);
   });
@@ -35,6 +38,27 @@ describe("provisionInstitutionSchema", () => {
       name: "St Mary",
       slug: "st-mary",
       curriculum_types: [],
+      admin_email: "admin@stmary.ac.ke",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a missing administrator email", () => {
+    const result = provisionInstitutionSchema.safeParse({
+      name: "St Mary",
+      slug: "st-mary",
+      curriculum_types: ["cbc"],
+      admin_email: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an invalid administrator email", () => {
+    const result = provisionInstitutionSchema.safeParse({
+      name: "St Mary",
+      slug: "st-mary",
+      curriculum_types: ["cbc"],
+      admin_email: "not-an-email",
     });
     expect(result.success).toBe(false);
   });

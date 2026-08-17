@@ -111,7 +111,19 @@ capability.
 - Password reset: single-use, time-limited (1 hour) token, delivered via
   `notifications_core.services.send(...)` (email or SMS per user preference),
   never via a link that logs the user in directly — reset always requires
-  setting a new password.
+  setting a new password. The same `request_password_reset`/
+  `confirm_password_reset` pair also serves as the Institution
+  Administrator's "set your first password" mechanism when an institution
+  is provisioned (`docs/multitenancy.md` §7) — the token neither knows nor
+  cares whether it was issued for a forgotten password or a first one.
+  **Known gap, not fixed by that work:** the *general* forgot-password
+  flow (`PasswordResetRequestView`) still never actually delivers its
+  token — `accounts` has no wiring to `notifications_core.services.send(...)`
+  for that path (only the new institution-admin-welcome path is wired, via
+  `core.signals.notification_requested`, since `accounts` itself can't
+  import `notifications_core` directly — independent Layer 0 siblings).
+  Existing users requesting a password reset get a token that's created
+  but never emailed/texted to them. Follow-up, not in scope here.
 - **MFA fields reserved now, enforcement built later:** `accounts.User` gets
   a nullable `totp_secret` and `mfa_enabled` field in the initial migration,
   even though the enrollment/verification flow isn't built for v1. Adding

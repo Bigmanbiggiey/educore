@@ -21,7 +21,10 @@ HOSTNAME = "st-mary-dashboard.educore.africa"
 class DashboardAPITestCase(APITestCase):
     def setUp(self):
         self.institution = provision_institution(
-            name="St Mary", slug="st-mary-dashboard", curriculum_types=["cbc"]
+            name="St Mary",
+            slug="st-mary-dashboard",
+            curriculum_types=["cbc"],
+            admin_email="admin@st-mary-dashboard.ac.ke",
         )
         Domain.objects.filter(institution=self.institution, is_primary=True).update(
             hostname=HOSTNAME

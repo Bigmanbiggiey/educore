@@ -18,6 +18,8 @@ export const provisionInstitutionSchema = z.object({
     .array(z.enum(["cbc", "844", "british", "tvet", "university"]))
     .min(1, "Select at least one curriculum"),
   timezone_name: z.string().optional(),
+  admin_email: z.string().min(1, "Enter the administrator's email").email("Enter a valid email"),
+  admin_phone: z.string().optional(),
 });
 
 export type ProvisionInstitutionFormValues = z.infer<typeof provisionInstitutionSchema>;

@@ -97,6 +97,34 @@ rebuild.
 
 ---
 
+## 4a. First-Run Bootstrap: Platform Administrator
+
+A fresh environment (shared cluster or a dedicated-infra tenant that needs
+its own break-glass System Administrator) starts with zero `User` rows —
+there is no login possible yet, so no HTTP endpoint can create the first
+one. Bootstrap it once, manually, via:
+
+```
+docker compose exec backend python manage.py bootstrap_platform_admin \
+  --email admin@example.com --password '...'
+```
+
+(or `PLATFORM_ADMIN_EMAIL`/`PLATFORM_ADMIN_PHONE`/`PLATFORM_ADMIN_PASSWORD`
+env vars, supplied via the §5 secrets mechanism, instead of CLI args). The
+command refuses to run if a platform-staff user already exists, so it's
+safe to leave documented as a step rather than something to remember to
+skip on redeploy. It is **not** wired into `entrypoint.sh` — a deliberate
+choice: an environment gets exactly one platform admin, created once, by
+whoever holds the deploy secrets, not automatically on every container
+start.
+
+Once this admin exists, they can log in via `PlatformLoginView`
+(`/api/v1/platform/auth/login/`) and provision institutions — each of
+which automatically seeds its own Institution Administrator (§8 below no
+longer needs a separate manual step for that part).
+
+---
+
 ## 5. Secrets Management
 
 Every deployment (shared cluster, each dedicated-infra tenant) has its own
@@ -173,9 +201,17 @@ comfortably handles — not adopted preemptively) drives:
 6. Run migrations (all apps migrate into this instance's sole `default`
    database — no router complexity here, per `docs/multitenancy.md` §5).
 7. Seed platform default data: the 12 system `Role` templates
-   (`docs/permissions.md` §2), default `NotificationTemplate`s.
-8. Create the `Institution` + `Domain` row for this tenant, create the
-   initial Institution Administrator account.
+   (`docs/permissions.md` §2), default `NotificationTemplate`s — both are
+   data migrations, applied automatically by step 6.
+7a. Bootstrap this tenant's own platform System Administrator (§4a above) —
+    only needed if this dedicated-infra tenant runs its own
+    `admin.educore.africa`-equivalent panel, rather than being managed from
+    the shared cluster's platform host.
+8. Create the `Institution` + `Domain` row for this tenant via
+   `POST /api/v1/platform/institutions/` (or the System Administrator
+   portal) — this automatically seeds the Institution Administrator
+   User/InstitutionMembership/role and sends their welcome/set-password
+   email, no separate manual account-creation step needed.
 9. Point DNS (customer's domain, CNAME'd per §3) and register it with
    Cloudflare for SaaS for certificate issuance.
 10. Register the new host with the uptime monitor (§7).

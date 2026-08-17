@@ -22,7 +22,10 @@ from apps.timetable.services import assign_slot, create_period, create_timetable
 class DashboardSelectorTestCase(TestCase):
     def setUp(self):
         self.institution = provision_institution(
-            name="St Mary", slug=f"st-mary-dash-{uuid.uuid4().hex[:8]}", curriculum_types=["cbc"]
+            name="St Mary",
+            slug=f"st-mary-dash-{uuid.uuid4().hex[:8]}",
+            curriculum_types=["cbc"],
+            admin_email=f"admin-{uuid.uuid4().hex[:8]}@stmary.ac.ke",
         )
         academic_year = create_academic_year(
             institution=self.institution,

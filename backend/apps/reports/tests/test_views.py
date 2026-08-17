@@ -23,7 +23,10 @@ HOSTNAME = "st-mary-reports-view.educore.africa"
 class ReportsAPITestCase(APITestCase):
     def setUp(self):
         self.institution = provision_institution(
-            name="St Mary", slug="st-mary-reports-view", curriculum_types=["844"]
+            name="St Mary",
+            slug="st-mary-reports-view",
+            curriculum_types=["844"],
+            admin_email="admin@st-mary-reports-view.ac.ke",
         )
         Domain.objects.filter(institution=self.institution, is_primary=True).update(
             hostname=HOSTNAME

@@ -14,6 +14,7 @@ describe("ProvisionInstitutionForm", () => {
 
     expect(await screen.findByText(/enter an institution name/i)).toBeInTheDocument();
     expect(screen.getByText(/enter a slug/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter the administrator's email/i)).toBeInTheDocument();
     expect(screen.getByText(/select at least one curriculum/i)).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -25,6 +26,7 @@ describe("ProvisionInstitutionForm", () => {
 
     await user.type(screen.getByLabelText("Institution name"), "St Mary");
     await user.type(screen.getByLabelText("Slug"), "st-mary");
+    await user.type(screen.getByLabelText("Administrator email"), "admin@stmary.ac.ke");
     await user.click(screen.getByLabelText("CBC"));
     await user.click(screen.getByRole("button", { name: /provision institution/i }));
 
@@ -33,6 +35,7 @@ describe("ProvisionInstitutionForm", () => {
         expect.objectContaining({
           name: "St Mary",
           slug: "st-mary",
+          admin_email: "admin@stmary.ac.ke",
           curriculum_types: ["cbc"],
         }),
         expect.anything(),

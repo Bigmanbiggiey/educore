@@ -1,7 +1,10 @@
+from unittest.mock import patch
+
 from django.core.cache import cache
 from django.test import TestCase
 
 from apps.accounts.models import User
+from apps.core.signals import audit_event, notification_requested
 from apps.institutions.models import Institution
 from apps.permissions.models import InstitutionMembership, MembershipRole, Permission, Role
 from apps.permissions.selectors import get_membership_access
@@ -9,6 +12,7 @@ from apps.permissions.services import (
     assign_role,
     create_membership,
     grant_permission_to_role,
+    provision_institution_admin,
     revoke_role,
 )
 
@@ -23,6 +27,78 @@ class CreateMembershipTests(TestCase):
         self.assertEqual(membership.user, user)
         self.assertEqual(membership.institution, institution)
         self.assertFalse(membership.is_default)
+
+
+class ProvisionInstitutionAdminTests(TestCase):
+    """`provision_institution_admin`'s own contract: it creates the User/
+    Membership/Role/reset-token (all legally within reach: `permissions`
+    imports both `accounts` and `institutions`), and it fires
+    `audit_event`/`notification_requested` with the right payload — mocked
+    here at the `apps.core.signals` boundary rather than importing
+    `apps.audit`/`apps.notifications_core` to inspect real rows, since
+    those are independent Layer 0 siblings this app can't import
+    (`.importlinter`). What each signal's receiver actually does with that
+    payload is `audit`'s/`notifications_core`'s own test suites' job.
+    """
+
+    def setUp(self):
+        self.institution = Institution.objects.create(name="St Mary", slug="st-mary")
+
+    @patch.object(notification_requested, "send")
+    @patch.object(audit_event, "send")
+    def test_creates_user_membership_and_role(self, mock_audit_send, mock_notification_send):
+        platform_staff = User.objects.create_user(
+            email="platform@educore.africa", password="x" * 12, is_platform_staff=True
+        )
+
+        membership = provision_institution_admin(
+            institution=self.institution,
+            admin_email="admin@stmary.ac.ke",
+            actor=platform_staff,
+        )
+
+        admin_user = User.objects.get(email="admin@stmary.ac.ke")
+        self.assertEqual(membership.user, admin_user)
+        self.assertEqual(membership.institution, self.institution)
+        self.assertTrue(membership.is_default)
+        self.assertEqual(membership.status, InstitutionMembership.Status.ACTIVE)
+        self.assertTrue(
+            MembershipRole.objects.filter(
+                membership=membership,
+                role=Role.objects.get(name="Institution Administrator", institution__isnull=True),
+            ).exists()
+        )
+        self.assertTrue(admin_user.password_reset_tokens.filter(used_at__isnull=True).exists())
+
+        mock_audit_send.assert_called_once_with(
+            sender=provision_institution_admin,
+            actor=platform_staff,
+            institution=self.institution,
+            action="platform.institution.admin_provisioned",
+            target=admin_user,
+        )
+        mock_notification_send.assert_called_once()
+        notification_kwargs = mock_notification_send.call_args.kwargs
+        self.assertEqual(notification_kwargs["institution"], self.institution)
+        self.assertEqual(notification_kwargs["recipient"], admin_user)
+        self.assertEqual(notification_kwargs["template_key"], "institution_admin_welcome")
+        self.assertEqual(notification_kwargs["channel"], "email")
+        self.assertIn("reset_url", notification_kwargs["context"])
+
+    @patch.object(notification_requested, "send")
+    @patch.object(audit_event, "send")
+    def test_rejects_an_already_registered_admin_email(
+        self, mock_audit_send, mock_notification_send
+    ):
+        User.objects.create_user(email="admin@stmary.ac.ke", password="x" * 12)
+
+        with self.assertRaises(ValueError):
+            provision_institution_admin(
+                institution=self.institution, admin_email="admin@stmary.ac.ke"
+            )
+
+        mock_audit_send.assert_not_called()
+        mock_notification_send.assert_not_called()
 
 
 class AssignRevokeRoleTests(TestCase):

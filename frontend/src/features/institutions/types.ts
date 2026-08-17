@@ -11,6 +11,8 @@ export interface ProvisionInstitutionInput {
   slug: string;
   curriculum_types: CurriculumType[];
   timezone_name?: string;
+  admin_email: string;
+  admin_phone?: string;
 }
 
 export interface SetIsolationTierInput {

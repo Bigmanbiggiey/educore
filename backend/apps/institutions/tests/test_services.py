@@ -1,5 +1,8 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 
+from apps.core.signals import institution_provisioned
 from apps.institutions.models import Domain, Institution, InstitutionCurriculum
 from apps.institutions.services import (
     add_custom_domain,
@@ -8,9 +11,22 @@ from apps.institutions.services import (
     verify_domain,
 )
 
+# `institutions` and `accounts`/`permissions`/`audit`/`notifications_core` are
+# independent under `.importlinter`'s layer-0 contract, so these tests can't
+# import User/InstitutionMembership/AuditLog/NotificationLog to assert on
+# them directly (that coverage lives in apps.permissions.tests, the one
+# layer that legally imports both accounts and institutions). What's
+# verified here is `provision_institution`'s own contract: it creates its
+# own three models, and it fires `institution_provisioned` with the right
+# payload — real end-to-end admin provisioning (the receiver chain this
+# signal triggers) is exercised for real by every call below, since
+# `apps.permissions`'s receiver is wired up for the whole test run; only
+# the assertions are scoped to what this app is allowed to see.
+
 
 class ProvisionInstitutionTests(TestCase):
-    def test_creates_institution_primary_domain_and_curricula_atomically(self):
+    @patch("apps.notifications_core.services.dispatch_notification.delay")
+    def test_creates_institution_primary_domain_and_curricula_atomically(self, mock_delay):
         institution = provision_institution(
             name="St Mary",
             slug="st-mary",
@@ -18,6 +34,7 @@ class ProvisionInstitutionTests(TestCase):
                 InstitutionCurriculum.CurriculumType.CBC,
                 InstitutionCurriculum.CurriculumType.EIGHT_FOUR_FOUR,
             ],
+            admin_email="admin@stmary.ac.ke",
         )
 
         self.assertEqual(institution.name, "St Mary")
@@ -29,8 +46,56 @@ class ProvisionInstitutionTests(TestCase):
 
     def test_rejects_an_unknown_curriculum_type(self):
         with self.assertRaises(ValueError):
-            provision_institution(name="St Mary", slug="st-mary", curriculum_types=["klingon"])
+            provision_institution(
+                name="St Mary",
+                slug="st-mary",
+                curriculum_types=["klingon"],
+                admin_email="admin@stmary.ac.ke",
+            )
         self.assertFalse(Institution.objects.filter(slug="st-mary").exists())
+
+    def test_fires_institution_provisioned_with_the_admin_details(self):
+        with patch.object(institution_provisioned, "send") as mock_send:
+            institution = provision_institution(
+                name="St Mary",
+                slug="st-mary",
+                curriculum_types=[InstitutionCurriculum.CurriculumType.CBC],
+                admin_email="admin@stmary.ac.ke",
+                admin_phone="+254700000000",
+            )
+
+        mock_send.assert_called_once_with(
+            sender=provision_institution,
+            institution=institution,
+            admin_email="admin@stmary.ac.ke",
+            admin_phone="+254700000000",
+            actor=None,
+        )
+
+    @patch("apps.notifications_core.services.dispatch_notification.delay")
+    def test_second_provisioning_with_a_reused_admin_email_rolls_back_entirely(self, mock_delay):
+        # No mocking of the admin-provisioning chain here — this proves the
+        # real, live signal-mediated chain (institutions -> core.signals ->
+        # permissions.receivers -> permissions.services) actually enforces
+        # the "no institution without its admin" invariant end-to-end, not
+        # just that the code compiles.
+        provision_institution(
+            name="St Mary",
+            slug="st-mary",
+            curriculum_types=[InstitutionCurriculum.CurriculumType.CBC],
+            admin_email="admin@stmary.ac.ke",
+        )
+
+        with self.assertRaises(ValueError):
+            provision_institution(
+                name="Holy Cross",
+                slug="holy-cross",
+                curriculum_types=[InstitutionCurriculum.CurriculumType.CBC],
+                admin_email="admin@stmary.ac.ke",
+            )
+
+        self.assertFalse(Institution.objects.filter(slug="holy-cross").exists())
+        self.assertTrue(Institution.objects.filter(slug="st-mary").exists())
 
 
 class SetIsolationTierTests(TestCase):

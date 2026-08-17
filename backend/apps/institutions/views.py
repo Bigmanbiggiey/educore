@@ -40,7 +40,9 @@ class InstitutionViewSet(
         serializer = ProvisionInstitutionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            institution = services.provision_institution(**serializer.validated_data)
+            institution = services.provision_institution(
+                actor=request.user, **serializer.validated_data
+            )
         except ValueError as exc:
             raise ValidationError({"detail": [str(exc)]}) from exc
         return Response(InstitutionSerializer(institution).data, status=201)

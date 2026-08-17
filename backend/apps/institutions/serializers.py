@@ -36,6 +36,13 @@ class ProvisionInstitutionSerializer(serializers.Serializer):
         child=serializers.ChoiceField(choices=InstitutionCurriculum.CurriculumType.choices)
     )
     timezone_name = serializers.CharField(max_length=50, required=False, default="Africa/Nairobi")
+    # docs/multitenancy.md §7: provisioning always seeds the Institution
+    # Administrator — see services.provision_institution's docstring for
+    # why that admin is created via a signal, not inline in this app.
+    admin_email = serializers.EmailField()
+    admin_phone = serializers.CharField(
+        max_length=20, required=False, allow_null=True, allow_blank=True, default=None
+    )
 
 
 class SetIsolationTierSerializer(serializers.Serializer):

@@ -8,6 +8,7 @@ import secrets
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.signals import institution_provisioned
 from apps.institutions.models import Domain, Institution, InstitutionCurriculum
 
 PLATFORM_DOMAIN_SUFFIX = ".educore.africa"
@@ -20,16 +21,27 @@ def provision_institution(
     slug: str,
     curriculum_types: list[str],
     timezone_name: str = "Africa/Nairobi",
+    admin_email: str,
+    admin_phone: str | None = None,
+    actor=None,
 ) -> Institution:
-    """Creates an Institution + its primary subdomain + curriculum row(s)
-    in one transaction — docs/multitenancy.md §7's shared_row "fast,
-    self-serve path".
+    """Creates an Institution + its primary subdomain + curriculum row(s),
+    then seeds its Institution Administrator, in one transaction —
+    docs/multitenancy.md §7's shared_row "fast, self-serve path".
 
-    That provisioning flow also seeds the Institution Administrator's
-    User/InstitutionMembership and sends a welcome notification; those
-    steps land here once `accounts`, `permissions`, and `notifications_core`
-    exist (docs/roadmap.md Phase 1) — they don't yet, so this function only
-    does the slice `institutions` itself owns.
+    The admin User/InstitutionMembership/Role + welcome notification are
+    NOT created inline here: `institutions` and `accounts` are independent
+    Layer 0 siblings under `.importlinter` (neither may import the other),
+    and `permissions`/`notifications_core` sit above both, so this
+    function can't call into them directly. Instead it fires
+    `institution_provisioned` (defined in `apps.core.signals` specifically
+    so a sender never needs a forbidden import) after creating the
+    Institution/Domain/Curricula, in the same `@transaction.atomic` block —
+    Django dispatches signals synchronously and in-process, so
+    `apps.permissions`'s receiver (which legally imports both `accounts`
+    and `institutions`) still runs, and rolls back, inside this same
+    transaction. See `apps.permissions.services.provision_institution_admin`
+    for what that receiver does.
     """
     invalid_types = set(curriculum_types) - set(InstitutionCurriculum.CurriculumType.values)
     if invalid_types:
@@ -48,6 +60,13 @@ def provision_institution(
     InstitutionCurriculum.objects.bulk_create(
         InstitutionCurriculum(institution=institution, curriculum_type=curriculum_type)
         for curriculum_type in curriculum_types
+    )
+    institution_provisioned.send(
+        sender=provision_institution,
+        institution=institution,
+        admin_email=admin_email,
+        admin_phone=admin_phone,
+        actor=actor,
     )
     return institution
 
