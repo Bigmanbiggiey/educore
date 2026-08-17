@@ -9,6 +9,7 @@ from apps.institutions.models import Domain, Institution
 from apps.permissions.models import InstitutionMembership, MembershipRole, Role
 
 HOSTNAME = "st-mary.educore.africa"
+PLATFORM_HOST = "admin.educore.africa"
 COOKIE_NAME = "refresh_token"
 
 # Login/refresh/logout are all anonymous-by-design endpoints sharing one
@@ -219,6 +220,22 @@ class MeViewTests(AuthViewTestCase):
 
         response = self.client.get(
             self.url, HTTP_HOST=HOSTNAME, HTTP_AUTHORIZATION=self._bearer(outsider)
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.data["institution_membership"])
+
+    def test_platform_staff_on_the_platform_host_has_no_institution_membership(self):
+        # request.institution is never set by TenantMiddleware on a
+        # platform host without an active act-as session — this must not
+        # 500 (AttributeError), it must report None like any other
+        # no-membership-here state.
+        platform_staff = User.objects.create_user(
+            email="admin@educore.africa", password="a-decent-password", is_platform_staff=True
+        )
+
+        response = self.client.get(
+            self.url, HTTP_HOST=PLATFORM_HOST, HTTP_AUTHORIZATION=self._bearer(platform_staff)
         )
 
         self.assertEqual(response.status_code, 200)

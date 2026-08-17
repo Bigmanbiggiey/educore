@@ -78,8 +78,13 @@ class MeSerializer(serializers.Serializer):
 
     @extend_schema_field(InstitutionMembershipSummarySerializer(allow_null=True))
     def get_institution_membership(self, user):
-        institution = self.context["request"].institution
-        if not is_institution_member(user, institution):
+        # Never set by TenantMiddleware on a platform host unless an
+        # act-as session is active (apps/institutions/middleware.py) — a
+        # platform-staff user calling /me/ with no such session has no
+        # `request.institution` at all, not an institution they're simply
+        # not a member of.
+        institution = getattr(self.context["request"], "institution", None)
+        if institution is None or not is_institution_member(user, institution):
             return None
         access = get_membership_access(user, institution)
         return {"roles": sorted(access.role_names)}
