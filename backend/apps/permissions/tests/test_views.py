@@ -6,7 +6,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import User
 from apps.institutions.models import Domain, Institution
-from apps.permissions.models import InstitutionMembership, MembershipRole, Role
+from apps.permissions.models import (
+    InstitutionMembership,
+    MembershipRole,
+    Permission,
+    Role,
+    RolePermission,
+)
 
 HOSTNAME = "st-mary.educore.africa"
 PLATFORM_HOST = "admin.educore.africa"
@@ -240,3 +246,63 @@ class MeViewTests(AuthViewTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.data["institution_membership"])
+
+
+class InviteMemberViewTests(AuthViewTestCase):
+    """Same fixture shape as `students.tests.test_views` uses for its
+    `HasPermission`-gated endpoints: a role created ad hoc per test,
+    carrying only the permission code(s) that test needs, rather than
+    relying on the real seeded `Institution Administrator` role+grants
+    (migration 0003) so this suite stays independent of that migration's
+    exact contents."""
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("v1:permissions-members:member-invite")
+
+    def _bearer(self, user):
+        return f"Bearer {RefreshToken.for_user(user).access_token}"
+
+    def _grant(self, *, permission_code):
+        role = Role.objects.create(name="Registrar", institution=self.institution)
+        permission = Permission.objects.create(code=permission_code)
+        RolePermission.objects.create(role=role, permission=permission)
+        MembershipRole.objects.create(membership=self.membership, role=role)
+
+    def test_without_the_permission_is_denied(self):
+        response = self.client.post(
+            self.url,
+            {"email": "new-teacher@stmary.ac.ke", "role_name": "Teacher"},
+            HTTP_HOST=HOSTNAME,
+            HTTP_AUTHORIZATION=self._bearer(self.user),
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_invites_a_member(self):
+        self._grant(permission_code="permissions.membership.invite")
+
+        response = self.client.post(
+            self.url,
+            {"email": "new-teacher@stmary.ac.ke", "role_name": "Teacher"},
+            HTTP_HOST=HOSTNAME,
+            HTTP_AUTHORIZATION=self._bearer(self.user),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["email"], "new-teacher@stmary.ac.ke")
+        self.assertEqual(response.data["role_name"], "Teacher")
+        self.assertTrue(User.objects.filter(email="new-teacher@stmary.ac.ke").exists())
+
+    def test_duplicate_email_is_a_validation_error(self):
+        self._grant(permission_code="permissions.membership.invite")
+        User.objects.create_user(email="new-teacher@stmary.ac.ke", password="x" * 12)
+
+        response = self.client.post(
+            self.url,
+            {"email": "new-teacher@stmary.ac.ke", "role_name": "Teacher"},
+            HTTP_HOST=HOSTNAME,
+            HTTP_AUTHORIZATION=self._bearer(self.user),
+        )
+
+        self.assertEqual(response.status_code, 400)

@@ -11,6 +11,10 @@ urlpatterns = [
     # check needs a dependency accounts doesn't have).
     path("auth/", include("apps.accounts.urls")),
     path("auth/", include("apps.permissions.urls")),
+    # Institution-scoped (unlike auth/ above and platform/ below) —
+    # `InviteMemberView` is an Institution Administrator write, gated the
+    # same way `students`/`staff`/`parents` endpoints are.
+    path("", include("apps.permissions.member_urls")),
     # docs/permissions.md §7: platform-staff endpoints, gated by
     # `is_platform_staff` rather than `InstitutionMembership`/`Role` — never
     # reachable via `TenantMiddleware`'s normal institution-Host resolution.

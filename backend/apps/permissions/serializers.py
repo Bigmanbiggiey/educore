@@ -11,6 +11,7 @@ from rest_framework.exceptions import AuthenticationFailed
 
 from apps.accounts.selectors import get_user_by_email_or_phone
 from apps.permissions.selectors import get_membership_access, is_institution_member
+from apps.permissions.services import INVITABLE_ROLE_NAMES
 
 
 class LoginSerializer(serializers.Serializer):
@@ -88,3 +89,17 @@ class MeSerializer(serializers.Serializer):
             return None
         access = get_membership_access(user, institution)
         return {"roles": sorted(access.role_names)}
+
+
+class InviteMemberSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    phone = serializers.CharField(
+        max_length=20, required=False, allow_null=True, allow_blank=True, default=None
+    )
+    role_name = serializers.ChoiceField(choices=INVITABLE_ROLE_NAMES)
+
+
+class InviteMemberResultSerializer(serializers.Serializer):
+    user_id = serializers.UUIDField()
+    email = serializers.EmailField(allow_null=True)
+    role_name = serializers.CharField()

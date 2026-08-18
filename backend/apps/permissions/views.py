@@ -12,7 +12,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -23,7 +23,15 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from apps.core.permissions import IsPlatformStaff
 from apps.core.signals import audit_event
 from apps.institutions.models import Institution
-from apps.permissions.serializers import LoginSerializer, MeSerializer, PlatformLoginSerializer
+from apps.permissions import services
+from apps.permissions.permissions import HasPermission, IsInstitutionMember
+from apps.permissions.serializers import (
+    InviteMemberResultSerializer,
+    InviteMemberSerializer,
+    LoginSerializer,
+    MeSerializer,
+    PlatformLoginSerializer,
+)
 
 ACT_AS_TOKEN_LIFETIME = timedelta(minutes=30)
 
@@ -206,3 +214,33 @@ class MeView(APIView):
     def get(self, request):
         serializer = MeSerializer(request.user, context={"request": request})
         return Response(serializer.data)
+
+
+class InviteMemberView(APIView):
+    """Institution Administrator's onboarding path for the 11 non-admin
+    seeded roles — `services.invite_member`'s only caller. Institution-scoped
+    (unlike `InstitutionViewSet`'s platform-staff-only endpoints), so this
+    is gated the same way every other institution-scoped write is
+    (docs/permissions.md §6): `IsInstitutionMember` + `HasPermission(...)`.
+    """
+
+    permission_classes = [IsInstitutionMember, HasPermission("permissions.membership.invite")]
+
+    @extend_schema(request=InviteMemberSerializer, responses={201: InviteMemberResultSerializer})
+    def post(self, request):
+        serializer = InviteMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            membership = services.invite_member(
+                institution=request.institution, actor=request.user, **serializer.validated_data
+            )
+        except ValueError as exc:
+            raise ValidationError({"detail": [str(exc)]}) from exc
+        result = InviteMemberResultSerializer(
+            {
+                "user_id": membership.user_id,
+                "email": membership.user.email,
+                "role_name": serializer.validated_data["role_name"],
+            }
+        )
+        return Response(result.data, status=201)

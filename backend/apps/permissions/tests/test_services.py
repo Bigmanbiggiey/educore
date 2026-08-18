@@ -12,6 +12,7 @@ from apps.permissions.services import (
     assign_role,
     create_membership,
     grant_permission_to_role,
+    invite_member,
     provision_institution_admin,
     revoke_role,
 )
@@ -97,6 +98,81 @@ class ProvisionInstitutionAdminTests(TestCase):
                 institution=self.institution, admin_email="admin@stmary.ac.ke"
             )
 
+        mock_audit_send.assert_not_called()
+        mock_notification_send.assert_not_called()
+
+
+class InviteMemberTests(TestCase):
+    """`invite_member`'s own contract — same mocked-signal-boundary
+    reasoning as `ProvisionInstitutionAdminTests` above, since this
+    function fires the exact same two signals."""
+
+    def setUp(self):
+        self.institution = Institution.objects.create(name="St Mary", slug="st-mary")
+
+    @patch.object(notification_requested, "send")
+    @patch.object(audit_event, "send")
+    def test_creates_user_membership_and_role(self, mock_audit_send, mock_notification_send):
+        admin = User.objects.create_user(email="admin@stmary.ac.ke", password="x" * 12)
+
+        membership = invite_member(
+            institution=self.institution,
+            role_name="Teacher",
+            email="teacher@stmary.ac.ke",
+            actor=admin,
+        )
+
+        teacher_user = User.objects.get(email="teacher@stmary.ac.ke")
+        self.assertEqual(membership.user, teacher_user)
+        self.assertEqual(membership.institution, self.institution)
+        self.assertTrue(membership.is_default)
+        self.assertTrue(
+            MembershipRole.objects.filter(
+                membership=membership,
+                role=Role.objects.get(name="Teacher", institution__isnull=True),
+            ).exists()
+        )
+        self.assertTrue(teacher_user.password_reset_tokens.filter(used_at__isnull=True).exists())
+
+        mock_audit_send.assert_called_once_with(
+            sender=invite_member,
+            actor=admin,
+            institution=self.institution,
+            action="permissions.membership.member_invited",
+            target=teacher_user,
+        )
+        mock_notification_send.assert_called_once()
+        notification_kwargs = mock_notification_send.call_args.kwargs
+        self.assertEqual(notification_kwargs["institution"], self.institution)
+        self.assertEqual(notification_kwargs["recipient"], teacher_user)
+        self.assertEqual(notification_kwargs["template_key"], "member_welcome")
+        self.assertEqual(notification_kwargs["channel"], "email")
+        self.assertEqual(notification_kwargs["context"]["role_name"], "Teacher")
+        self.assertIn("reset_url", notification_kwargs["context"])
+
+    @patch.object(notification_requested, "send")
+    @patch.object(audit_event, "send")
+    def test_rejects_an_already_registered_email(self, mock_audit_send, mock_notification_send):
+        User.objects.create_user(email="teacher@stmary.ac.ke", password="x" * 12)
+
+        with self.assertRaises(ValueError):
+            invite_member(
+                institution=self.institution, role_name="Teacher", email="teacher@stmary.ac.ke"
+            )
+
+        mock_audit_send.assert_not_called()
+        mock_notification_send.assert_not_called()
+
+    @patch.object(notification_requested, "send")
+    @patch.object(audit_event, "send")
+    def test_rejects_a_non_invitable_role(self, mock_audit_send, mock_notification_send):
+        for role_name in ("Institution Administrator", "System Administrator", "Made Up Role"):
+            with self.assertRaises(ValueError):
+                invite_member(
+                    institution=self.institution, role_name=role_name, email="x@stmary.ac.ke"
+                )
+
+        self.assertFalse(User.objects.filter(email="x@stmary.ac.ke").exists())
         mock_audit_send.assert_not_called()
         mock_notification_send.assert_not_called()
 

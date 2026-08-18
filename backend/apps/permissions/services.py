@@ -24,6 +24,25 @@ from apps.permissions.selectors import cache_key_for
 
 INSTITUTION_ADMINISTRATOR_ROLE_NAME = "Institution Administrator"
 
+# The 11 seeded system roles an Institution Administrator may invite a
+# member into — everything from docs/permissions.md §2's 12 except
+# "Institution Administrator" itself (auto-provisioned, see
+# `provision_institution_admin` below) and "System Administrator" (not a
+# `Role` at all — granted via `is_platform_staff`, docs/permissions.md §7).
+INVITABLE_ROLE_NAMES = [
+    "Principal",
+    "Deputy Principal",
+    "Finance Officer",
+    "Teacher",
+    "Parent",
+    "Student",
+    "Librarian",
+    "Nurse",
+    "Receptionist",
+    "Transport Manager",
+    "Hostel Warden",
+]
+
 
 def _invalidate_access_cache(membership: InstitutionMembership) -> None:
     """Explicit invalidation, not left to the 5-minute TTL — a role
@@ -92,6 +111,61 @@ def provision_institution_admin(
         # Plain string, not notifications_core.models.Channel.EMAIL —
         # permissions/notifications_core are independent Layer 0 siblings
         # under `.importlinter`, so this app can't import that module.
+        channel="email",
+    )
+    return membership
+
+
+def invite_member(
+    *,
+    institution: Institution,
+    role_name: str,
+    email: str,
+    phone: str | None = None,
+    actor: User | None = None,
+) -> InstitutionMembership:
+    """Institution Administrator's onboarding path for the 11 non-admin
+    seeded roles — same shape as `provision_institution_admin` above (that
+    function's own docstring is why this orchestration lives here rather
+    than in `staff`/`students`/`parents`: `.importlinter`'s layer contract
+    forbids this Layer 0 app from importing any of those Layer 1 apps, so
+    this stays a pure login+membership+role primitive; a role-specific
+    profile — `StaffProfile`, `ParentProfile`, a `Student.user_id` — is a
+    separate follow-up call to that app's own existing endpoint, not part
+    of this function).
+    """
+    if role_name not in INVITABLE_ROLE_NAMES:
+        raise ValueError(f"{role_name!r} is not an invitable role")
+
+    if User.objects.filter(email=email).exists():
+        raise ValueError(f"A user with email {email!r} already exists")
+
+    user = register_user(email=email, phone=phone, password=secrets.token_urlsafe(32))
+    membership = create_membership(user=user, institution=institution, is_default=True)
+    role = Role.objects.get(name=role_name, institution__isnull=True, is_system=True)
+    assign_role(membership, role)
+    reset_token = request_password_reset(user)
+
+    audit_event.send(
+        sender=invite_member,
+        actor=actor,
+        institution=institution,
+        action="permissions.membership.member_invited",
+        target=user,
+    )
+    notification_requested.send(
+        sender=invite_member,
+        institution=institution,
+        recipient=user,
+        template_key="member_welcome",
+        context={
+            "institution_name": institution.name,
+            "role_name": role_name,
+            "reset_url": (
+                f"https://{institution.slug}{PLATFORM_DOMAIN_SUFFIX}"
+                f"/reset-password?token={reset_token.token}"
+            ),
+        },
         channel="email",
     )
     return membership
