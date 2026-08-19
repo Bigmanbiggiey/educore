@@ -305,6 +305,14 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
 
+# Origins Django's own CSRF middleware trusts for unsafe-method requests
+# arriving over HTTPS (Django 4+ checks the Origin header against this list
+# for secure requests). Only matters for session-authenticated views —
+# django.contrib.admin is the one place in this app that applies; every DRF
+# API view authenticates via JWTAuthentication only, which DRF exempts from
+# CSRF enforcement entirely (docs/authentication.md).
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
 # --------------------------------------------------------------------------
 # Notifications — pluggable per-channel backend (apps.notifications_core)
 # --------------------------------------------------------------------------
