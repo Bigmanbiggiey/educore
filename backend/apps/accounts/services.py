@@ -20,7 +20,7 @@ def register_user(*, email: str | None = None, phone: str | None = None, passwor
     """
     if not email and not phone:
         raise ValueError("A user requires an email or a phone number")
-    user = User(email=email, phone=phone)
+    user = User(email=email, phone=phone or None)
     validate_password(password, user=user)
     user.set_password(password)
     user.save()
